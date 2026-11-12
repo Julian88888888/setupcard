@@ -1,0 +1,40 @@
+appId: com.setupcard.app
+productName: SetupCard
+directories:
+  buildResources: resources
+  output: dist
+files:
+  - '!**/.vscode/*'
+  - '!src/*'
+  - '!electron.vite.config.*'
+  - '!{.eslintignore,.eslintrc.cjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
+  - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
+  - '!drizzle.config.ts'
+  - '!tailwind.config.js'
+  - '!postcss.config.js'
+# Native modules must be unpacked from asar so Node can load the .node binary
+asarUnpack:
+  - 'node_modules/better-sqlite3/**'
+extraResources:
+  - from: src/main/db/migrations
+    to: migrations
+    filter:
+      - '**/*'
+win:
+  # Avoid winCodeSign/rcedit (fails on Windows without Developer Mode due to macOS symlinks in the tool cache)
+  signAndEditExecutable: false
+  target:
+    - nsis
+  artifactName: ${name}-${version}-setup.${ext}
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+mac:
+  target:
+    - dmg
+  artifactName: ${name}-${version}.${ext}
+linux:
+  target:
+    - AppImage
+  artifactName: ${name}-${version}.${ext}
+npmRebuild: true
