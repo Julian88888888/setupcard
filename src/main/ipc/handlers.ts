@@ -12,6 +12,8 @@ import {
   type Item
 } from '../../shared/schemas'
 import { exportBackup, importBackup } from './backup'
+import { registerMachineHandlers } from './machines'
+import { registerPartHandlers } from './parts'
 import { logger } from '../logger'
 import { app } from 'electron'
 
@@ -93,6 +95,14 @@ export function registerIpcHandlers(): void {
     getDb().delete(schema.items).where(eq(schema.items.id, id)).run()
     return { success: true }
   })
+
+  // ── Machines ──────────────────────────────────────────────────────────────
+
+  registerMachineHandlers()
+
+  // ── Parts ─────────────────────────────────────────────────────────────────
+
+  registerPartHandlers()
 
   // ── Backup ────────────────────────────────────────────────────────────────
 

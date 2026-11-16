@@ -45,11 +45,6 @@ export function SettingsPanel(): JSX.Element {
 
   return (
     <section className="rounded-xl border border-white/10 bg-surface-raised/80 p-6 shadow-lg shadow-black/20 backdrop-blur">
-      <header className="mb-5">
-        <h2 className="text-lg font-semibold tracking-tight text-ink">Налаштування</h2>
-        <p className="mt-1 text-sm text-ink-muted">Тема, мова та резервне копіювання</p>
-      </header>
-
       <div className="flex flex-col gap-5">
         <label className="flex flex-col gap-1.5">
           <span className="text-sm text-ink-muted">Тема</span>

@@ -22,6 +22,21 @@ export function getImagesPath(): string {
   return join(app.getPath('userData'), 'images')
 }
 
+/** Absolute path for machine photos: userData/images/machines/ */
+export function getMachinesImagesPath(): string {
+  return join(getImagesPath(), 'machines')
+}
+
+/** Absolute path for fixture photos: userData/images/fixtures/ */
+export function getFixturesImagesPath(): string {
+  return join(getImagesPath(), 'fixtures')
+}
+
+/** Absolute path for transition photos: userData/images/transitions/ */
+export function getTransitionsImagesPath(): string {
+  return join(getImagesPath(), 'transitions')
+}
+
 /**
  * Open (or create) the database, enable WAL, run migrations, ensure images dir exists.
  * Call once during app startup before registering IPC handlers.
@@ -31,9 +46,15 @@ export function initDatabase(): AppDatabase {
 
   const dbPath = getDatabasePath()
   const imagesPath = getImagesPath()
+  const machinesImagesPath = getMachinesImagesPath()
+  const fixturesImagesPath = getFixturesImagesPath()
+  const transitionsImagesPath = getTransitionsImagesPath()
 
   mkdirSync(app.getPath('userData'), { recursive: true })
   mkdirSync(imagesPath, { recursive: true })
+  mkdirSync(machinesImagesPath, { recursive: true })
+  mkdirSync(fixturesImagesPath, { recursive: true })
+  mkdirSync(transitionsImagesPath, { recursive: true })
 
   logger.info('Opening database:', dbPath)
   sqlite = new Database(dbPath)
