@@ -27,14 +27,9 @@ export function getMachinesImagesPath(): string {
   return join(getImagesPath(), 'machines')
 }
 
-/** Absolute path for fixture photos: userData/images/fixtures/ */
-export function getFixturesImagesPath(): string {
-  return join(getImagesPath(), 'fixtures')
-}
-
-/** Absolute path for transition photos: userData/images/transitions/ */
-export function getTransitionsImagesPath(): string {
-  return join(getImagesPath(), 'transitions')
+/** Absolute path for part photos: userData/images/parts/ */
+export function getPartsImagesPath(): string {
+  return join(getImagesPath(), 'parts')
 }
 
 /**
@@ -47,14 +42,12 @@ export function initDatabase(): AppDatabase {
   const dbPath = getDatabasePath()
   const imagesPath = getImagesPath()
   const machinesImagesPath = getMachinesImagesPath()
-  const fixturesImagesPath = getFixturesImagesPath()
-  const transitionsImagesPath = getTransitionsImagesPath()
+  const partsImagesPath = getPartsImagesPath()
 
   mkdirSync(app.getPath('userData'), { recursive: true })
   mkdirSync(imagesPath, { recursive: true })
   mkdirSync(machinesImagesPath, { recursive: true })
-  mkdirSync(fixturesImagesPath, { recursive: true })
-  mkdirSync(transitionsImagesPath, { recursive: true })
+  mkdirSync(partsImagesPath, { recursive: true })
 
   logger.info('Opening database:', dbPath)
   sqlite = new Database(dbPath)

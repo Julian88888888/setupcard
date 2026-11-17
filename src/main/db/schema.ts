@@ -3,6 +3,9 @@ import { integer, real, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 /**
  * Drizzle schema — source of truth for the SQLite database.
  * Run `npm run db:generate` after changing this file to create a new migration.
+ *
+ * Stage-2 hook: materials.category is the contract for future tool compatibility rules.
+ * Tables `tools` / `compatibility_rules` are intentionally not created yet.
  */
 
 /** Key/value settings store */
@@ -62,15 +65,48 @@ export const machines = sqliteTable('machines', {
 })
 
 /**
- * Parts (Деталі) — machining cards linked to a machine.
+ * Material catalog — foundation for future tool↔material compatibility.
+ * category groups grades (steel, aluminum, …) for warning rules later.
+ */
+export const materials = sqliteTable('materials', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  name: text('name').notNull().unique(),
+  /** steel | stainless | aluminum | cast_iron | copper | titanium | plastic | other */
+  category: text('category').notNull().default('other'),
+  notes: text('notes').notNull().default(''),
+  createdAt: text('created_at')
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+  updatedAt: text('updated_at')
+    .notNull()
+    .$defaultFn(() => new Date().toISOString())
+})
+
+/** Workpiece type catalog (Пруток, Лист, …). */
+export const workpieceTypes = sqliteTable('workpiece_types', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  name: text('name').notNull().unique(),
+  notes: text('notes').notNull().default(''),
+  createdAt: text('created_at')
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+  updatedAt: text('updated_at')
+    .notNull()
+    .$defaultFn(() => new Date().toISOString())
+})
+
+/**
+ * Parts (Деталі) — flat machining cards.
+ * Photos live in part_photos (relative under userData/images/parts/).
  */
 export const parts = sqliteTable('parts', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   code: text('code').notNull(),
   name: text('name').notNull(),
-  material: text('material').notNull().default(''),
-  workpieceType: text('workpiece_type').notNull().default(''),
-  machineId: integer('machine_id').references(() => machines.id, { onDelete: 'set null' }),
+  materialId: integer('material_id').references(() => materials.id, { onDelete: 'set null' }),
+  workpieceTypeId: integer('workpiece_type_id').references(() => workpieceTypes.id, {
+    onDelete: 'set null'
+  }),
   notes: text('notes').notNull().default(''),
   createdAt: text('created_at')
     .notNull()
@@ -80,75 +116,14 @@ export const parts = sqliteTable('parts', {
     .$defaultFn(() => new Date().toISOString())
 })
 
-/** CNC program for a part (shown after a machine is selected). One per part. */
-export const partPrograms = sqliteTable('part_programs', {
+/** Multiple photos per part — relative paths under images/parts/. */
+export const partPhotos = sqliteTable('part_photos', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   partId: integer('part_id')
     .notNull()
     .references(() => parts.id, { onDelete: 'cascade' }),
-  name: text('name').notNull().default(''),
-  programNumber: text('program_number').notNull().default(''),
-  notes: text('notes').notNull().default(''),
-  createdAt: text('created_at')
-    .notNull()
-    .$defaultFn(() => new Date().toISOString()),
-  updatedAt: text('updated_at')
-    .notNull()
-    .$defaultFn(() => new Date().toISOString())
-})
-
-/** Fixtures / Приспособи — multiple per part. */
-export const partFixtures = sqliteTable('part_fixtures', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  partId: integer('part_id')
-    .notNull()
-    .references(() => parts.id, { onDelete: 'cascade' }),
-  name: text('name').notNull(),
-  description: text('description').notNull().default(''),
-  notes: text('notes').notNull().default(''),
-  sortOrder: integer('sort_order').notNull().default(0),
-  createdAt: text('created_at')
-    .notNull()
-    .$defaultFn(() => new Date().toISOString()),
-  updatedAt: text('updated_at')
-    .notNull()
-    .$defaultFn(() => new Date().toISOString())
-})
-
-/** Photos for a fixture — relative paths under images/fixtures/. */
-export const partFixturePhotos = sqliteTable('part_fixture_photos', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  fixtureId: integer('fixture_id')
-    .notNull()
-    .references(() => partFixtures.id, { onDelete: 'cascade' }),
   photoPath: text('photo_path').notNull(),
   sortOrder: integer('sort_order').notNull().default(0)
-})
-
-/**
- * Processing steps / Переходи.
- * Tool assembly fields are denormalized next to each step.
- */
-export const partTransitions = sqliteTable('part_transitions', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  partId: integer('part_id')
-    .notNull()
-    .references(() => parts.id, { onDelete: 'cascade' }),
-  stepNumber: integer('step_number').notNull().default(1),
-  name: text('name').notNull(),
-  description: text('description').notNull().default(''),
-  toolName: text('tool_name').notNull().default(''),
-  toolDiameter: text('tool_diameter').notNull().default(''),
-  toolLength: text('tool_length').notNull().default(''),
-  toolNotes: text('tool_notes').notNull().default(''),
-  photoPath: text('photo_path'),
-  sortOrder: integer('sort_order').notNull().default(0),
-  createdAt: text('created_at')
-    .notNull()
-    .$defaultFn(() => new Date().toISOString()),
-  updatedAt: text('updated_at')
-    .notNull()
-    .$defaultFn(() => new Date().toISOString())
 })
 
 export type SettingsRow = typeof settings.$inferSelect
@@ -156,5 +131,8 @@ export type ItemRow = typeof items.$inferSelect
 export type NewItemRow = typeof items.$inferInsert
 export type MachineRow = typeof machines.$inferSelect
 export type NewMachineRow = typeof machines.$inferInsert
+export type MaterialRow = typeof materials.$inferSelect
+export type WorkpieceTypeRow = typeof workpieceTypes.$inferSelect
 export type PartRow = typeof parts.$inferSelect
 export type NewPartRow = typeof parts.$inferInsert
+export type PartPhotoRow = typeof partPhotos.$inferSelect

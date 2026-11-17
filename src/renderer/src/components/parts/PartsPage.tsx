@@ -27,8 +27,7 @@ export function PartsPage(): JSX.Element {
     createPart,
     updatePart,
     deletePart,
-    pickFixturePhoto,
-    pickTransitionPhoto
+    pickPhoto
   } = usePartsStore()
 
   useEffect(() => {
@@ -77,8 +76,7 @@ export function PartsPage(): JSX.Element {
           error={error}
           onSubmit={handleSubmit}
           onCancel={backToList}
-          onPickFixturePhoto={pickFixturePhoto}
-          onPickTransitionPhoto={pickTransitionPhoto}
+          onPickPhoto={pickPhoto}
         />
       )}
 

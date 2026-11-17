@@ -3,6 +3,8 @@ import { useAppStore, type AppSection } from '../../store/useAppStore'
 const NAV_ITEMS: Array<{ id: AppSection; label: string }> = [
   { id: 'machines', label: 'Верстати' },
   { id: 'parts', label: 'Деталі' },
+  { id: 'materials', label: 'Матеріали' },
+  { id: 'workpieceTypes', label: 'Типи заготовок' },
   { id: 'settings', label: 'Налаштування' }
 ]
 

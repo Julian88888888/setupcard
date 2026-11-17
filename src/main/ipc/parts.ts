@@ -1,25 +1,24 @@
 import { BrowserWindow, ipcMain } from 'electron'
-import { asc, count, eq, like, or, sql } from 'drizzle-orm'
+import { asc, eq, like, or, sql } from 'drizzle-orm'
 import { getDb, schema } from '../db'
 import { IpcChannels } from '../../shared/ipc-channels'
 import {
+  MaterialCategorySchema,
   PartCreateSchema,
   PartIdSchema,
   PartSearchSchema,
   PartUpdateSchema,
+  type MaterialCategory,
   type PartCreate,
   type PartDetail,
-  type PartFixture,
   type PartListItem,
-  type PartProgram,
-  type PartTransition,
   type PhotoResult
 } from '../../shared/schemas'
 import { deleteImageFile, pickAndSaveImage } from '../utils/images'
 import { logger } from '../logger'
 
 /**
- * Register parts CRUD + nested program / fixtures / transitions + photo pickers.
+ * Register flat parts CRUD + multi-photo picker.
  */
 export function registerPartHandlers(): void {
   ipcMain.handle(IpcChannels.PARTS_LIST, async (_event, raw: unknown) => {
@@ -40,57 +39,31 @@ export function registerPartHandlers(): void {
         id: schema.parts.id,
         code: schema.parts.code,
         name: schema.parts.name,
-        material: schema.parts.material,
-        workpieceType: schema.parts.workpieceType,
-        machineId: schema.parts.machineId,
-        machineName: schema.machines.name,
+        materialId: schema.parts.materialId,
+        materialName: schema.materials.name,
+        materialCategory: schema.materials.category,
+        workpieceTypeId: schema.parts.workpieceTypeId,
+        workpieceTypeName: schema.workpieceTypes.name,
         notes: schema.parts.notes,
         createdAt: schema.parts.createdAt,
         updatedAt: schema.parts.updatedAt
       })
       .from(schema.parts)
-      .leftJoin(schema.machines, eq(schema.parts.machineId, schema.machines.id))
+      .leftJoin(schema.materials, eq(schema.parts.materialId, schema.materials.id))
+      .leftJoin(schema.workpieceTypes, eq(schema.parts.workpieceTypeId, schema.workpieceTypes.id))
       .where(
         pattern
           ? or(
               like(schema.parts.code, pattern),
               like(schema.parts.name, pattern),
-              like(schema.parts.material, pattern)
+              like(schema.materials.name, pattern)
             )
           : undefined
       )
       .orderBy(sql`${schema.parts.code} COLLATE NOCASE`)
       .all()
 
-    return rows.map((row): PartListItem => {
-      const fixtureCount =
-        db
-          .select({ value: count() })
-          .from(schema.partFixtures)
-          .where(eq(schema.partFixtures.partId, row.id))
-          .get()?.value ?? 0
-      const transitionCount =
-        db
-          .select({ value: count() })
-          .from(schema.partTransitions)
-          .where(eq(schema.partTransitions.partId, row.id))
-          .get()?.value ?? 0
-
-      return {
-        id: row.id,
-        code: row.code,
-        name: row.name,
-        material: row.material,
-        workpieceType: row.workpieceType,
-        machineId: row.machineId,
-        machineName: row.machineName ?? null,
-        notes: row.notes,
-        fixtureCount,
-        transitionCount,
-        createdAt: row.createdAt,
-        updatedAt: row.updatedAt
-      }
-    })
+    return rows.map((row) => mapPartRow(row, loadPhotoPaths(row.id)))
   })
 
   ipcMain.handle(IpcChannels.PARTS_GET, async (_event, raw: unknown) => {
@@ -120,7 +93,7 @@ export function registerPartHandlers(): void {
 
   ipcMain.handle(IpcChannels.PARTS_DELETE, async (_event, raw: unknown) => {
     const { id } = PartIdSchema.parse(typeof raw === 'number' ? { id: raw } : raw)
-    const photos = collectPartPhotoPaths(id)
+    const photos = loadPhotoPaths(id)
     getDb().delete(schema.parts).where(eq(schema.parts.id, id)).run()
     for (const path of photos) {
       deleteImageFile(path)
@@ -128,45 +101,24 @@ export function registerPartHandlers(): void {
     return { success: true }
   })
 
-  ipcMain.handle(
-    IpcChannels.PARTS_PICK_FIXTURE_PHOTO,
-    async (event): Promise<PhotoResult> => {
-      const win = BrowserWindow.fromWebContents(event.sender)
-      return pickAndSaveImage(win, {
-        title: 'Вибрати фото приспособи',
-        subdir: 'fixtures'
-      })
-    }
-  )
-
-  ipcMain.handle(
-    IpcChannels.PARTS_PICK_TRANSITION_PHOTO,
-    async (event): Promise<PhotoResult> => {
-      const win = BrowserWindow.fromWebContents(event.sender)
-      return pickAndSaveImage(win, {
-        title: 'Вибрати фото переходу',
-        subdir: 'transitions'
-      })
-    }
-  )
+  ipcMain.handle(IpcChannels.PARTS_PICK_PHOTO, async (event): Promise<PhotoResult> => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    return pickAndSaveImage(win, {
+      title: 'Вибрати фото деталі',
+      subdir: 'parts',
+      multiple: true
+    })
+  })
 }
 
 function persistPart(existingId: number | null, data: PartCreate): number {
   const db = getDb()
   const now = new Date().toISOString()
 
-  if (data.machineId != null) {
-    const machine = db
-      .select({ id: schema.machines.id })
-      .from(schema.machines)
-      .where(eq(schema.machines.id, data.machineId))
-      .get()
-    if (!machine) {
-      throw new Error(`Machine ${data.machineId} not found`)
-    }
-  }
+  assertCatalogRefs(data.materialId ?? null, data.workpieceTypeId ?? null)
 
-  const oldPhotos = existingId != null ? collectPartPhotoPaths(existingId) : []
+  const oldPhotos = existingId != null ? loadPhotoPaths(existingId) : []
+  const newPhotos = data.photoPaths ?? []
 
   const partId = db.transaction((tx) => {
     let id: number
@@ -177,9 +129,8 @@ function persistPart(existingId: number | null, data: PartCreate): number {
         .values({
           code: data.code,
           name: data.name,
-          material: data.material ?? '',
-          workpieceType: data.workpieceType ?? '',
-          machineId: data.machineId ?? null,
+          materialId: data.materialId ?? null,
+          workpieceTypeId: data.workpieceTypeId ?? null,
           notes: data.notes ?? '',
           createdAt: now,
           updatedAt: now
@@ -192,86 +143,34 @@ function persistPart(existingId: number | null, data: PartCreate): number {
         .set({
           code: data.code,
           name: data.name,
-          material: data.material ?? '',
-          workpieceType: data.workpieceType ?? '',
-          machineId: data.machineId ?? null,
+          materialId: data.materialId ?? null,
+          workpieceTypeId: data.workpieceTypeId ?? null,
           notes: data.notes ?? '',
           updatedAt: now
         })
         .where(eq(schema.parts.id, existingId))
         .run()
 
-      // Cascade deletes fixture photos via FK
-      tx.delete(schema.partPrograms).where(eq(schema.partPrograms.partId, existingId)).run()
-      tx.delete(schema.partFixtures).where(eq(schema.partFixtures.partId, existingId)).run()
-      tx.delete(schema.partTransitions).where(eq(schema.partTransitions.partId, existingId)).run()
+      tx.delete(schema.partPhotos).where(eq(schema.partPhotos.partId, existingId)).run()
       id = existingId
     }
 
-    if (data.machineId != null && data.program) {
-      tx.insert(schema.partPrograms)
+    newPhotos.forEach((photoPath, index) => {
+      tx.insert(schema.partPhotos)
         .values({
           partId: id,
-          name: data.program.name ?? '',
-          programNumber: data.program.programNumber ?? '',
-          notes: data.program.notes ?? '',
-          createdAt: now,
-          updatedAt: now
-        })
-        .run()
-    }
-
-    ;(data.fixtures ?? []).forEach((fixture, index) => {
-      const inserted = tx
-        .insert(schema.partFixtures)
-        .values({
-          partId: id,
-          name: fixture.name,
-          description: fixture.description ?? '',
-          notes: fixture.notes ?? '',
-          sortOrder: index,
-          createdAt: now,
-          updatedAt: now
-        })
-        .returning({ id: schema.partFixtures.id })
-        .get()
-
-      ;(fixture.photoPaths ?? []).forEach((photoPath, photoIndex) => {
-        tx.insert(schema.partFixturePhotos)
-          .values({
-            fixtureId: inserted.id,
-            photoPath,
-            sortOrder: photoIndex
-          })
-          .run()
-      })
-    })
-
-    ;(data.transitions ?? []).forEach((step, index) => {
-      const tool = step.toolAssembly ?? {}
-      tx.insert(schema.partTransitions)
-        .values({
-          partId: id,
-          stepNumber: step.stepNumber,
-          name: step.name,
-          description: step.description ?? '',
-          toolName: tool.name ?? '',
-          toolDiameter: tool.diameter ?? '',
-          toolLength: tool.length ?? '',
-          toolNotes: tool.notes ?? '',
-          photoPath: step.photoPath ?? null,
-          sortOrder: step.sortOrder ?? index,
-          createdAt: now,
-          updatedAt: now
+          photoPath,
+          sortOrder: index
         })
         .run()
     })
 
     return id
   })
-  const keptPhotos = new Set(collectPartPhotoPaths(partId))
+
+  const kept = new Set(newPhotos)
   for (const path of oldPhotos) {
-    if (!keptPhotos.has(path)) {
+    if (!kept.has(path)) {
       deleteImageFile(path)
     }
   }
@@ -281,138 +180,99 @@ function persistPart(existingId: number | null, data: PartCreate): number {
 }
 
 function loadPartDetail(id: number): PartDetail | null {
-  const db = getDb()
-  const row = db
+  const row = getDb()
     .select({
       id: schema.parts.id,
       code: schema.parts.code,
       name: schema.parts.name,
-      material: schema.parts.material,
-      workpieceType: schema.parts.workpieceType,
-      machineId: schema.parts.machineId,
-      machineName: schema.machines.name,
+      materialId: schema.parts.materialId,
+      materialName: schema.materials.name,
+      materialCategory: schema.materials.category,
+      workpieceTypeId: schema.parts.workpieceTypeId,
+      workpieceTypeName: schema.workpieceTypes.name,
       notes: schema.parts.notes,
       createdAt: schema.parts.createdAt,
       updatedAt: schema.parts.updatedAt
     })
     .from(schema.parts)
-    .leftJoin(schema.machines, eq(schema.parts.machineId, schema.machines.id))
+    .leftJoin(schema.materials, eq(schema.parts.materialId, schema.materials.id))
+    .leftJoin(schema.workpieceTypes, eq(schema.parts.workpieceTypeId, schema.workpieceTypes.id))
     .where(eq(schema.parts.id, id))
     .get()
 
-  if (!row) return null
+  return row ? mapPartRow(row, loadPhotoPaths(id)) : null
+}
 
-  const programRow = db
-    .select()
-    .from(schema.partPrograms)
-    .where(eq(schema.partPrograms.partId, id))
-    .get()
-
-  const program: PartProgram | null = programRow
-    ? {
-        id: programRow.id,
-        name: programRow.name,
-        programNumber: programRow.programNumber,
-        notes: programRow.notes
-      }
-    : null
-
-  const fixtureRows = db
-    .select()
-    .from(schema.partFixtures)
-    .where(eq(schema.partFixtures.partId, id))
-    .orderBy(asc(schema.partFixtures.sortOrder), asc(schema.partFixtures.id))
+function loadPhotoPaths(partId: number): string[] {
+  return getDb()
+    .select({ photoPath: schema.partPhotos.photoPath })
+    .from(schema.partPhotos)
+    .where(eq(schema.partPhotos.partId, partId))
+    .orderBy(asc(schema.partPhotos.sortOrder), asc(schema.partPhotos.id))
     .all()
+    .map((r) => r.photoPath)
+}
 
-  const fixtures: PartFixture[] = fixtureRows.map((fixture) => {
-    const photos = db
-      .select()
-      .from(schema.partFixturePhotos)
-      .where(eq(schema.partFixturePhotos.fixtureId, fixture.id))
-      .orderBy(asc(schema.partFixturePhotos.sortOrder), asc(schema.partFixturePhotos.id))
-      .all()
-
-    return {
-      id: fixture.id,
-      name: fixture.name,
-      description: fixture.description,
-      notes: fixture.notes,
-      sortOrder: fixture.sortOrder,
-      photoPaths: photos.map((p) => p.photoPath)
-    }
-  })
-
-  const transitionRows = db
-    .select()
-    .from(schema.partTransitions)
-    .where(eq(schema.partTransitions.partId, id))
-    .orderBy(asc(schema.partTransitions.sortOrder), asc(schema.partTransitions.stepNumber))
-    .all()
-
-  const transitions: PartTransition[] = transitionRows.map((step) => ({
-    id: step.id,
-    stepNumber: step.stepNumber,
-    name: step.name,
-    description: step.description,
-    toolAssembly: {
-      name: step.toolName,
-      diameter: step.toolDiameter,
-      length: step.toolLength,
-      notes: step.toolNotes
-    },
-    photoPath: step.photoPath,
-    sortOrder: step.sortOrder
-  }))
+function mapPartRow(
+  row: {
+    id: number
+    code: string
+    name: string
+    materialId: number | null
+    materialName: string | null
+    materialCategory: string | null
+    workpieceTypeId: number | null
+    workpieceTypeName: string | null
+    notes: string
+    createdAt: string
+    updatedAt: string
+  },
+  photoPaths: string[]
+): PartListItem {
+  let materialCategory: MaterialCategory | null = null
+  if (row.materialCategory) {
+    const parsed = MaterialCategorySchema.safeParse(row.materialCategory)
+    materialCategory = parsed.success ? parsed.data : 'other'
+  }
 
   return {
     id: row.id,
     code: row.code,
     name: row.name,
-    material: row.material,
-    workpieceType: row.workpieceType,
-    machineId: row.machineId,
-    machineName: row.machineName ?? null,
+    materialId: row.materialId,
+    materialName: row.materialName ?? null,
+    materialCategory,
+    workpieceTypeId: row.workpieceTypeId,
+    workpieceTypeName: row.workpieceTypeName ?? null,
     notes: row.notes,
-    program,
-    fixtures,
-    transitions,
+    photoPaths,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt
   }
 }
 
-function collectPartPhotoPaths(partId: number): string[] {
+function assertCatalogRefs(materialId: number | null, workpieceTypeId: number | null): void {
   const db = getDb()
-  const paths: string[] = []
-
-  const fixtures = db
-    .select({ id: schema.partFixtures.id })
-    .from(schema.partFixtures)
-    .where(eq(schema.partFixtures.partId, partId))
-    .all()
-
-  for (const fixture of fixtures) {
-    const photos = db
-      .select({ photoPath: schema.partFixturePhotos.photoPath })
-      .from(schema.partFixturePhotos)
-      .where(eq(schema.partFixturePhotos.fixtureId, fixture.id))
-      .all()
-    for (const photo of photos) {
-      paths.push(photo.photoPath)
+  if (materialId != null) {
+    const material = db
+      .select({ id: schema.materials.id })
+      .from(schema.materials)
+      .where(eq(schema.materials.id, materialId))
+      .get()
+    if (!material) {
+      throw new Error(`Material ${materialId} not found`)
     }
   }
-
-  const transitions = db
-    .select({ photoPath: schema.partTransitions.photoPath })
-    .from(schema.partTransitions)
-    .where(eq(schema.partTransitions.partId, partId))
-    .all()
-
-  for (const step of transitions) {
-    if (step.photoPath) paths.push(step.photoPath)
+  if (workpieceTypeId != null) {
+    const wt = db
+      .select({ id: schema.workpieceTypes.id })
+      .from(schema.workpieceTypes)
+      .where(eq(schema.workpieceTypes.id, workpieceTypeId))
+      .get()
+    if (!wt) {
+      throw new Error(`Workpiece type ${workpieceTypeId} not found`)
+    }
   }
-
-  return paths
 }
 
 function escapeLike(value: string): string {

@@ -1,3 +1,5 @@
+import { MaterialsPage } from './components/catalogs/MaterialsPage'
+import { WorkpieceTypesPage } from './components/catalogs/WorkpieceTypesPage'
 import { Sidebar } from './components/layout/Sidebar'
 import { MachinesPage } from './components/machines/MachinesPage'
 import { PartsPage } from './components/parts/PartsPage'
@@ -16,6 +18,8 @@ function App(): JSX.Element {
         <main className="flex-1 overflow-auto px-6 py-8 lg:px-10">
           {section === 'machines' && <MachinesPage />}
           {section === 'parts' && <PartsPage />}
+          {section === 'materials' && <MaterialsPage />}
+          {section === 'workpieceTypes' && <WorkpieceTypesPage />}
           {section === 'settings' && (
             <div className="mx-auto w-full max-w-2xl">
               <header className="mb-6">

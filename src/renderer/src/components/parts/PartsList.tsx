@@ -1,4 +1,5 @@
 import type { PartListItem } from '../../../../shared/schemas'
+import { mediaUrl } from '../../lib/media'
 
 interface PartsListProps {
   parts: PartListItem[]
@@ -56,41 +57,42 @@ export function PartsList({
         </div>
       ) : (
         <ul className="flex flex-col gap-3">
-          {parts.map((part) => (
-            <li key={part.id}>
-              <button
-                type="button"
-                onClick={() => onOpen(part.id)}
-                className="flex w-full flex-col gap-2 rounded-xl border border-white/10 bg-surface-raised/40 p-4 text-left transition hover:border-accent/40 hover:bg-surface-raised/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 sm:flex-row sm:items-center sm:justify-between"
-              >
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                    <span className="font-mono text-sm text-accent">{part.code}</span>
+          {parts.map((part) => {
+            const thumb = mediaUrl(part.photoPaths[0])
+            return (
+              <li key={part.id}>
+                <button
+                  type="button"
+                  onClick={() => onOpen(part.id)}
+                  className="flex w-full gap-4 rounded-xl border border-white/10 bg-surface-raised/40 p-4 text-left transition hover:border-accent/40 hover:bg-surface-raised/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
+                >
+                  {thumb ? (
+                    <img
+                      src={thumb}
+                      alt=""
+                      className="size-14 shrink-0 rounded-lg object-cover"
+                    />
+                  ) : (
+                    <div className="flex size-14 shrink-0 items-center justify-center rounded-lg bg-surface-overlay text-xs text-ink-faint">
+                      фото
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
                     <h2 className="truncate text-base font-semibold text-ink">{part.name}</h2>
+                    <p className="mt-1 truncate text-sm text-ink-muted">
+                      <span className="font-mono text-accent">{part.code}</span>
+                      <span className="text-ink-faint"> · </span>
+                      <span>{part.materialName || 'матеріал не вказано'}</span>
+                    </p>
+                    {part.workpieceTypeName && (
+                      <p className="mt-1 text-xs text-ink-faint">Заготовка: {part.workpieceTypeName}</p>
+                    )}
                   </div>
-                  <dl className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-ink-muted">
-                    <div>
-                      <dt className="inline text-ink-faint">Матеріал: </dt>
-                      <dd className="inline">{part.material || '—'}</dd>
-                    </div>
-                    <div>
-                      <dt className="inline text-ink-faint">Заготовка: </dt>
-                      <dd className="inline">{part.workpieceType || '—'}</dd>
-                    </div>
-                    <div>
-                      <dt className="inline text-ink-faint">Верстат: </dt>
-                      <dd className="inline">{part.machineName || 'не вибрано'}</dd>
-                    </div>
-                  </dl>
-                </div>
-                <div className="flex shrink-0 items-center gap-3 text-xs text-ink-faint">
-                  <span>{part.fixtureCount} приспос.</span>
-                  <span>{part.transitionCount} переходів</span>
-                  <span className="text-accent">Детальніше →</span>
-                </div>
-              </button>
-            </li>
-          ))}
+                  <span className="shrink-0 self-center text-xs text-accent">Детальніше →</span>
+                </button>
+              </li>
+            )
+          })}
         </ul>
       )}
     </div>

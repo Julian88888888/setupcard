@@ -24,8 +24,7 @@ interface PartsState {
   createPart: (data: PartCreate) => Promise<PartDetail>
   updatePart: (data: PartUpdate) => Promise<PartDetail>
   deletePart: (id: number) => Promise<void>
-  pickFixturePhoto: () => Promise<string | null>
-  pickTransitionPhoto: () => Promise<string | null>
+  pickPhoto: () => Promise<string[]>
 }
 
 export const usePartsStore = create<PartsState>((set, get) => ({
@@ -142,21 +141,14 @@ export const usePartsStore = create<PartsState>((set, get) => ({
     }
   },
 
-  pickFixturePhoto: async () => {
-    const result = await window.api.parts.pickFixturePhoto()
-    if (result.success && result.path) return result.path
+  pickPhoto: async () => {
+    const result = await window.api.parts.pickPhoto()
+    if (result.success) {
+      return result.paths?.length ? result.paths : result.path ? [result.path] : []
+    }
     if (result.error && result.error !== 'cancelled') {
       set({ error: result.error })
     }
-    return null
-  },
-
-  pickTransitionPhoto: async () => {
-    const result = await window.api.parts.pickTransitionPhoto()
-    if (result.success && result.path) return result.path
-    if (result.error && result.error !== 'cancelled') {
-      set({ error: result.error })
-    }
-    return null
+    return []
   }
 }))

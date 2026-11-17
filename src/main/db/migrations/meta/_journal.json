@@ -29,6 +29,20 @@
       "when": 1731800000000,
       "tag": "0003_parts",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1731900000000,
+      "tag": "0004_simplify_parts",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1732000000000,
+      "tag": "0005_part_photos",
+      "breakpoints": true
     }
   ]
 }

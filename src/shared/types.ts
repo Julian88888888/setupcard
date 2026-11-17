@@ -8,13 +8,19 @@ import type {
   MachineCreate,
   MachinePhotoResult,
   MachineUpdate,
+  Material,
+  MaterialCreate,
+  MaterialUpdate,
   PartCreate,
   PartDetail,
   PartListItem,
   PartUpdate,
   PhotoResult,
   Settings,
-  SettingsUpdate
+  SettingsUpdate,
+  WorkpieceType,
+  WorkpieceTypeCreate,
+  WorkpieceTypeUpdate
 } from './schemas'
 
 /**
@@ -41,14 +47,25 @@ export interface ElectronAPI {
     delete: (id: number) => Promise<{ success: boolean }>
     pickPhoto: () => Promise<MachinePhotoResult>
   }
+  materials: {
+    list: () => Promise<Material[]>
+    create: (data: MaterialCreate) => Promise<Material>
+    update: (data: MaterialUpdate) => Promise<Material>
+    delete: (id: number) => Promise<{ success: boolean }>
+  }
+  workpieceTypes: {
+    list: () => Promise<WorkpieceType[]>
+    create: (data: WorkpieceTypeCreate) => Promise<WorkpieceType>
+    update: (data: WorkpieceTypeUpdate) => Promise<WorkpieceType>
+    delete: (id: number) => Promise<{ success: boolean }>
+  }
   parts: {
     list: (query?: string) => Promise<PartListItem[]>
     get: (id: number) => Promise<PartDetail | null>
     create: (data: PartCreate) => Promise<PartDetail>
     update: (data: PartUpdate) => Promise<PartDetail>
     delete: (id: number) => Promise<{ success: boolean }>
-    pickFixturePhoto: () => Promise<PhotoResult>
-    pickTransitionPhoto: () => Promise<PhotoResult>
+    pickPhoto: () => Promise<PhotoResult>
   }
   backup: {
     export: () => Promise<BackupResult>

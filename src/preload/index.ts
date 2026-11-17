@@ -6,9 +6,13 @@ import type {
   ItemUpdate,
   MachineCreate,
   MachineUpdate,
+  MaterialCreate,
+  MaterialUpdate,
   PartCreate,
   PartUpdate,
-  SettingsUpdate
+  SettingsUpdate,
+  WorkpieceTypeCreate,
+  WorkpieceTypeUpdate
 } from '../shared/schemas'
 
 /**
@@ -35,14 +39,27 @@ const api: ElectronAPI = {
     delete: (id: number) => ipcRenderer.invoke(IpcChannels.MACHINES_DELETE, id),
     pickPhoto: () => ipcRenderer.invoke(IpcChannels.MACHINES_PICK_PHOTO)
   },
+  materials: {
+    list: () => ipcRenderer.invoke(IpcChannels.MATERIALS_LIST),
+    create: (data: MaterialCreate) => ipcRenderer.invoke(IpcChannels.MATERIALS_CREATE, data),
+    update: (data: MaterialUpdate) => ipcRenderer.invoke(IpcChannels.MATERIALS_UPDATE, data),
+    delete: (id: number) => ipcRenderer.invoke(IpcChannels.MATERIALS_DELETE, id)
+  },
+  workpieceTypes: {
+    list: () => ipcRenderer.invoke(IpcChannels.WORKPIECE_TYPES_LIST),
+    create: (data: WorkpieceTypeCreate) =>
+      ipcRenderer.invoke(IpcChannels.WORKPIECE_TYPES_CREATE, data),
+    update: (data: WorkpieceTypeUpdate) =>
+      ipcRenderer.invoke(IpcChannels.WORKPIECE_TYPES_UPDATE, data),
+    delete: (id: number) => ipcRenderer.invoke(IpcChannels.WORKPIECE_TYPES_DELETE, id)
+  },
   parts: {
     list: (query?: string) => ipcRenderer.invoke(IpcChannels.PARTS_LIST, query ?? ''),
     get: (id: number) => ipcRenderer.invoke(IpcChannels.PARTS_GET, id),
     create: (data: PartCreate) => ipcRenderer.invoke(IpcChannels.PARTS_CREATE, data),
     update: (data: PartUpdate) => ipcRenderer.invoke(IpcChannels.PARTS_UPDATE, data),
     delete: (id: number) => ipcRenderer.invoke(IpcChannels.PARTS_DELETE, id),
-    pickFixturePhoto: () => ipcRenderer.invoke(IpcChannels.PARTS_PICK_FIXTURE_PHOTO),
-    pickTransitionPhoto: () => ipcRenderer.invoke(IpcChannels.PARTS_PICK_TRANSITION_PHOTO)
+    pickPhoto: () => ipcRenderer.invoke(IpcChannels.PARTS_PICK_PHOTO)
   },
   backup: {
     export: () => ipcRenderer.invoke(IpcChannels.BACKUP_EXPORT),

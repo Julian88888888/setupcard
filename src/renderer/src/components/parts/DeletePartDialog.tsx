@@ -23,8 +23,7 @@ export function DeletePartDialog({
           Видалити деталь?
         </h2>
         <p className="mt-2 text-sm text-ink-muted">
-          «{title}» буде видалено разом із програмою, приспособами та переходами. Цю дію неможливо
-          скасувати.
+          «{title}» буде видалено назавжди. Цю дію неможливо скасувати.
         </p>
         <div className="mt-6 flex justify-end gap-3">
           <button
