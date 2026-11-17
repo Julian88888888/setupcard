@@ -7,7 +7,12 @@ import type {
   WorkpieceType
 } from '../../../../shared/schemas'
 import { mediaUrl } from '../../lib/media'
-import { MATERIAL_CATEGORIES, MATERIAL_CATEGORY_LABELS } from '../catalogs/labels'
+import { IsoGroupBadge } from '../catalogs/IsoGroupBadge'
+import {
+  MATERIAL_CATEGORIES,
+  MATERIAL_CATEGORY_DEFAULT_COLORS,
+  materialGroupTitle
+} from '../catalogs/labels'
 
 interface PartFormProps {
   mode: 'create' | 'edit'
@@ -47,7 +52,8 @@ export function PartForm({
   const [workpieceTypes, setWorkpieceTypes] = useState<WorkpieceType[]>([])
 
   const [newMaterialName, setNewMaterialName] = useState('')
-  const [newMaterialCategory, setNewMaterialCategory] = useState<MaterialCategory>('other')
+  const [newMaterialCategory, setNewMaterialCategory] = useState<MaterialCategory>('P')
+  const [newMaterialColor, setNewMaterialColor] = useState(MATERIAL_CATEGORY_DEFAULT_COLORS.P)
   const [newWorkpieceName, setNewWorkpieceName] = useState('')
   const [addingMaterial, setAddingMaterial] = useState(false)
   const [addingWorkpiece, setAddingWorkpiece] = useState(false)
@@ -92,12 +98,14 @@ export function PartForm({
       const created = await window.api.materials.create({
         name,
         category: newMaterialCategory,
+        color: newMaterialColor,
         notes: ''
       })
       await refreshCatalogs()
       setField('materialId', created.id)
       setNewMaterialName('')
-      setNewMaterialCategory('other')
+      setNewMaterialCategory('P')
+      setNewMaterialColor(MATERIAL_CATEGORY_DEFAULT_COLORS.P)
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : String(err))
     } finally {
@@ -187,21 +195,27 @@ export function PartForm({
 
           <label className="flex flex-col gap-1.5">
             <span className="text-sm text-ink-muted">Матеріал</span>
-            <select
-              value={form.materialId ?? ''}
-              onChange={(e) =>
-                setField('materialId', e.target.value ? Number(e.target.value) : null)
-              }
-              disabled={loading}
-              className="rounded-lg border border-white/10 bg-surface-overlay px-3 py-2 text-ink outline-none focus:border-accent"
-            >
-              <option value="">— не вибрано —</option>
-              {materials.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.name}
-                </option>
-              ))}
-            </select>
+            <div className="flex items-center gap-2">
+              {(() => {
+                const selected = materials.find((m) => m.id === form.materialId)
+                return selected ? <IsoGroupBadge category={selected.category} /> : null
+              })()}
+              <select
+                value={form.materialId ?? ''}
+                onChange={(e) =>
+                  setField('materialId', e.target.value ? Number(e.target.value) : null)
+                }
+                disabled={loading}
+                className="min-w-0 flex-1 rounded-lg border border-white/10 bg-surface-overlay px-3 py-2 text-ink outline-none focus:border-accent"
+              >
+                <option value="">— не вибрано —</option>
+                {materials.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name} ({materialGroupTitle(m.category)})
+                  </option>
+                ))}
+              </select>
+            </div>
           </label>
         </div>
 
@@ -218,23 +232,28 @@ export function PartForm({
 
         <div className="flex flex-col gap-2 rounded-lg border border-dashed border-white/10 p-3">
           <p className="text-xs text-ink-faint">Швидко додати матеріал у довідник</p>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <input
               value={newMaterialName}
               onChange={(e) => setNewMaterialName(e.target.value)}
-              placeholder="Назва марки"
+              placeholder="Марка металу"
               disabled={loading || addingMaterial}
               className="min-w-[8rem] flex-1 rounded-lg border border-white/10 bg-surface-overlay px-3 py-2 text-sm text-ink outline-none focus:border-accent"
             />
+            <IsoGroupBadge category={newMaterialCategory} />
             <select
               value={newMaterialCategory}
-              onChange={(e) => setNewMaterialCategory(e.target.value as MaterialCategory)}
+              onChange={(e) => {
+                const next = e.target.value as MaterialCategory
+                setNewMaterialCategory(next)
+                setNewMaterialColor(MATERIAL_CATEGORY_DEFAULT_COLORS[next])
+              }}
               disabled={loading || addingMaterial}
               className="rounded-lg border border-white/10 bg-surface-overlay px-3 py-2 text-sm text-ink outline-none focus:border-accent"
             >
               {MATERIAL_CATEGORIES.map((c) => (
                 <option key={c} value={c}>
-                  {MATERIAL_CATEGORY_LABELS[c]}
+                  {materialGroupTitle(c)}
                 </option>
               ))}
             </select>

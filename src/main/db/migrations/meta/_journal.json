@@ -43,6 +43,20 @@
       "when": 1732000000000,
       "tag": "0005_part_photos",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1732100000000,
+      "tag": "0006_material_color",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1732200000000,
+      "tag": "0007_iso_material_groups",
+      "breakpoints": true
     }
   ]
 }

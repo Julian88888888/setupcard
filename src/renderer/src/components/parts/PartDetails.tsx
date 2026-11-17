@@ -1,6 +1,6 @@
 import type { PartDetail } from '../../../../shared/schemas'
 import { mediaUrl } from '../../lib/media'
-import { MATERIAL_CATEGORY_LABELS } from '../catalogs/labels'
+import { IsoGroupBadge } from '../catalogs/IsoGroupBadge'
 
 interface PartDetailsProps {
   part: PartDetail
@@ -41,20 +41,22 @@ export function PartDetails({ part, onBack, onEdit, onDelete }: PartDetailsProps
       </div>
 
       <header className="space-y-2">
-        <h1 className="text-3xl font-semibold tracking-tight text-ink">{part.name}</h1>
-        <p className="text-sm text-ink-muted">
-          <span className="font-mono text-accent">{part.code}</span>
-          <span className="text-ink-faint"> · </span>
-          <span>
-            {part.materialName
-              ? `${part.materialName}${
-                  part.materialCategory
-                    ? ` (${MATERIAL_CATEGORY_LABELS[part.materialCategory]})`
-                    : ''
-                }`
-              : 'матеріал не вказано'}
-          </span>
-        </p>
+        <h1 className="text-3xl font-semibold tracking-tight text-ink">{part.code}</h1>
+        <p className="text-3xl font-semibold tracking-tight text-ink">{part.name}</p>
+        <div className="flex flex-col gap-1.5">
+          {part.materialCategory ? (
+            <>
+              <div className="flex flex-wrap items-center gap-2">
+                <IsoGroupBadge category={part.materialCategory} size="md" showFullLabel />
+              </div>
+              {part.materialName && (
+                <p className="text-base font-semibold text-ink">{part.materialName}</p>
+              )}
+            </>
+          ) : (
+            <p className="text-sm text-ink-muted">матеріал не вказано</p>
+          )}
+        </div>
       </header>
 
       {photos.length > 0 && (

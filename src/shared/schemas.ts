@@ -137,23 +137,24 @@ export type MachinePhotoResult = PhotoResult
 
 // ── Material / Workpiece catalogs ───────────────────────────────────────────
 
-/** Categories used for future tool compatibility warnings */
-export const MaterialCategorySchema = z.enum([
-  'steel',
-  'stainless',
-  'aluminum',
-  'cast_iron',
-  'copper',
-  'titanium',
-  'plastic',
-  'other'
-])
+/**
+ * ISO 513 material application groups (as on cutting-insert packaging).
+ * Used for UI color coding and future tool↔material compatibility.
+ */
+export const MaterialCategorySchema = z.enum(['P', 'M', 'K', 'N', 'S', 'H'])
 
 export type MaterialCategory = z.infer<typeof MaterialCategorySchema>
 
+/** Hex color like #RRGGBB or #RGB */
+export const HexColorSchema = z
+  .string()
+  .regex(/^#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{3})$/, 'Очікується колір у форматі #RRGGBB')
+  .default('#1E5AA8')
+
 export const MaterialCreateSchema = z.object({
   name: z.string().min(1).max(200),
-  category: MaterialCategorySchema.default('other'),
+  category: MaterialCategorySchema.default('P'),
+  color: HexColorSchema,
   notes: optionalNotes
 })
 
@@ -173,6 +174,7 @@ export const MaterialSchema = z.object({
   id: z.number().int().positive(),
   name: z.string(),
   category: MaterialCategorySchema,
+  color: z.string(),
   notes: z.string(),
   createdAt: z.string(),
   updatedAt: z.string()
@@ -244,6 +246,7 @@ export const PartListItemSchema = z.object({
   materialId: z.number().int().positive().nullable(),
   materialName: z.string().nullable(),
   materialCategory: MaterialCategorySchema.nullable(),
+  materialColor: z.string().nullable(),
   workpieceTypeId: z.number().int().positive().nullable(),
   workpieceTypeName: z.string().nullable(),
   notes: z.string(),

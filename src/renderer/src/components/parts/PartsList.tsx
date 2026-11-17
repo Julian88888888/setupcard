@@ -1,5 +1,6 @@
 import type { PartListItem } from '../../../../shared/schemas'
 import { mediaUrl } from '../../lib/media'
+import { IsoGroupBadge } from '../catalogs/IsoGroupBadge'
 
 interface PartsListProps {
   parts: PartListItem[]
@@ -78,11 +79,19 @@ export function PartsList({
                     </div>
                   )}
                   <div className="min-w-0 flex-1">
-                    <h2 className="truncate text-base font-semibold text-ink">{part.name}</h2>
-                    <p className="mt-1 truncate text-sm text-ink-muted">
-                      <span className="font-mono text-accent">{part.code}</span>
-                      <span className="text-ink-faint"> · </span>
-                      <span>{part.materialName || 'матеріал не вказано'}</span>
+                    <p className="truncate text-base font-semibold text-ink">{part.code}</p>
+                    <p className="mt-0.5 truncate text-base font-semibold text-ink">{part.name}</p>
+                    <p className="mt-1 flex flex-wrap items-center gap-2 text-sm text-ink-muted">
+                      {part.materialCategory ? (
+                        <>
+                          <IsoGroupBadge category={part.materialCategory} showFullLabel />
+                          {part.materialName && (
+                            <span className="text-ink">{part.materialName}</span>
+                          )}
+                        </>
+                      ) : (
+                        <span>матеріал не вказано</span>
+                      )}
                     </p>
                     {part.workpieceTypeName && (
                       <p className="mt-1 text-xs text-ink-faint">Заготовка: {part.workpieceTypeName}</p>

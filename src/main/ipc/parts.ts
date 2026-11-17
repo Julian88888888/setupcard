@@ -42,6 +42,7 @@ export function registerPartHandlers(): void {
         materialId: schema.parts.materialId,
         materialName: schema.materials.name,
         materialCategory: schema.materials.category,
+        materialColor: schema.materials.color,
         workpieceTypeId: schema.parts.workpieceTypeId,
         workpieceTypeName: schema.workpieceTypes.name,
         notes: schema.parts.notes,
@@ -188,6 +189,7 @@ function loadPartDetail(id: number): PartDetail | null {
       materialId: schema.parts.materialId,
       materialName: schema.materials.name,
       materialCategory: schema.materials.category,
+      materialColor: schema.materials.color,
       workpieceTypeId: schema.parts.workpieceTypeId,
       workpieceTypeName: schema.workpieceTypes.name,
       notes: schema.parts.notes,
@@ -221,6 +223,7 @@ function mapPartRow(
     materialId: number | null
     materialName: string | null
     materialCategory: string | null
+    materialColor: string | null
     workpieceTypeId: number | null
     workpieceTypeName: string | null
     notes: string
@@ -232,7 +235,7 @@ function mapPartRow(
   let materialCategory: MaterialCategory | null = null
   if (row.materialCategory) {
     const parsed = MaterialCategorySchema.safeParse(row.materialCategory)
-    materialCategory = parsed.success ? parsed.data : 'other'
+    materialCategory = parsed.success ? parsed.data : 'P'
   }
 
   return {
@@ -242,6 +245,7 @@ function mapPartRow(
     materialId: row.materialId,
     materialName: row.materialName ?? null,
     materialCategory,
+    materialColor: row.materialColor ?? null,
     workpieceTypeId: row.workpieceTypeId,
     workpieceTypeName: row.workpieceTypeName ?? null,
     notes: row.notes,

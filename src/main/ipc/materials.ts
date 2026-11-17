@@ -30,6 +30,7 @@ export function registerMaterialHandlers(): void {
         .values({
           name: data.name.trim(),
           category: data.category,
+          color: data.color,
           notes: data.notes ?? '',
           createdAt: now,
           updatedAt: now
@@ -61,6 +62,7 @@ export function registerMaterialHandlers(): void {
         .set({
           ...(data.name !== undefined ? { name: data.name.trim() } : {}),
           ...(data.category !== undefined ? { category: data.category } : {}),
+          ...(data.color !== undefined ? { color: data.color } : {}),
           ...(data.notes !== undefined ? { notes: data.notes } : {}),
           updatedAt: now
         })
@@ -96,6 +98,7 @@ function mapMaterial(row: typeof schema.materials.$inferSelect): Material {
     id: row.id,
     name: row.name,
     category: row.category as MaterialCategory,
+    color: row.color,
     notes: row.notes,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt

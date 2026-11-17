@@ -71,8 +71,10 @@ export const machines = sqliteTable('machines', {
 export const materials = sqliteTable('materials', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   name: text('name').notNull().unique(),
-  /** steel | stainless | aluminum | cast_iron | copper | titanium | plastic | other */
-  category: text('category').notNull().default('other'),
+  /** ISO 513 group: P | M | K | N | S | H */
+  category: text('category').notNull().default('P'),
+  /** Hex color aligned with ISO packaging (P blue, M yellow, …) */
+  color: text('color').notNull().default('#1E5AA8'),
   notes: text('notes').notNull().default(''),
   createdAt: text('created_at')
     .notNull()
