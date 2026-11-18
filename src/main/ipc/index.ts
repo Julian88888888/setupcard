@@ -1,2 +1,6 @@
 export { registerIpcHandlers } from './handlers'
+export { registerMachineHandlers } from './machines'
+export { registerMaterialHandlers } from './materials'
+export { registerWorkpieceTypeHandlers } from './workpiece-types'
+export { registerPartHandlers } from './parts'
 export { exportBackup, importBackup } from './backup'

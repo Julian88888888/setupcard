@@ -14,7 +14,9 @@ body,
 
 body {
   margin: 0;
-  background: radial-gradient(ellipse at top, #1a2838 0%, #0f1419 55%);
+  background:
+    radial-gradient(ellipse 80% 50% at 10% -10%, rgba(61, 155, 253, 0.12), transparent 55%),
+    radial-gradient(ellipse at top, #1a2838 0%, #0f1419 55%);
   color: #e8eef6;
   font-family: 'Segoe UI', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;

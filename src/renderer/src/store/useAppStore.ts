@@ -1,14 +1,16 @@
 import { create } from 'zustand'
 import type { Settings, AppPaths } from '../../../shared/schemas'
 
+export type AppSection = 'machines' | 'parts' | 'materials' | 'workpieceTypes' | 'settings'
+
 interface AppState {
+  section: AppSection
   settings: Settings | null
   paths: AppPaths | null
-  settingsOpen: boolean
   statusMessage: string | null
   loading: boolean
 
-  setSettingsOpen: (open: boolean) => void
+  setSection: (section: AppSection) => void
   setStatusMessage: (msg: string | null) => void
   loadSettings: () => Promise<void>
   saveSettings: (update: Partial<Settings>) => Promise<void>
@@ -21,13 +23,13 @@ interface AppState {
  * Zustand store — UI state lives here; persistent data goes through window.api → main → SQLite.
  */
 export const useAppStore = create<AppState>((set, get) => ({
+  section: 'machines',
   settings: null,
   paths: null,
-  settingsOpen: false,
   statusMessage: null,
   loading: false,
 
-  setSettingsOpen: (open) => set({ settingsOpen: open }),
+  setSection: (section) => set({ section, statusMessage: null }),
   setStatusMessage: (msg) => set({ statusMessage: msg }),
 
   loadSettings: async () => {
