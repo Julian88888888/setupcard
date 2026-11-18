@@ -14,18 +14,87 @@ Electron desktop app for machining setup cards — PostgreSQL, React, and a secu
 
 ## Architecture
 
+```mermaid
+flowchart LR
+  Renderer[renderer React UI]
+  Preload[preload contextBridge]
+  Main[main process]
+  PG[(PostgreSQL Docker)]
+  Images[userData/images]
+
+  Renderer -->|window.api| Preload -->|IPC Zod| Main
+  Main --> PG
+  Main --> Images
 ```
-src/
-  main/          # Node process: DB, IPC, media:// protocol, backups
-  preload/       # contextBridge API (no Node leak to renderer)
-  renderer/      # React UI
-  shared/        # Zod schemas, IPC channel names, shared types
+
+### Folder layout
+
 ```
+setupcard/
+├── docker-compose.yml      # Local PostgreSQL (Docker)
+├── drizzle.config.ts       # Drizzle Kit (generate migrations only)
+├── electron-builder.yml    # Windows/macOS/Linux packaging
+├── electron.vite.config.ts # electron-vite build (main / preload / renderer)
+├── .env.example            # DATABASE_URL template
+├── package.json
+├── resources/              # electron-builder build resources
+└── src/
+    ├── main/               # Electron main process (Node, privileged)
+    │   ├── index.ts        # App lifecycle, window, startup DB init
+    │   ├── logger.ts       # electron-log
+    │   ├── db/
+    │   │   ├── index.ts    # Pool + Drizzle init, seed, paths
+    │   │   ├── schema.ts   # Drizzle tables (source of truth)
+    │   │   ├── migrate.ts  # Apply SQL migrations on startup
+    │   │   ├── seed-catalogs.ts
+    │   │   └── migrations/ # SQL files + meta/_journal.json
+    │   ├── ipc/
+    │   │   ├── handlers.ts # Settings, items, paths, backup wiring
+    │   │   ├── machines.ts
+    │   │   ├── materials.ts
+    │   │   ├── workpiece-types.ts
+    │   │   ├── parts.ts
+    │   │   └── backup.ts  # dump.sql + images zip
+    │   ├── protocol/
+    │   │   └── media.ts    # media://local/… for images
+    │   └── utils/
+    │       ├── images.ts   # Pick/save photo helpers
+    │       └── electron-toolkit.ts
+    ├── preload/
+    │   ├── index.ts        # contextBridge → window.api
+    │   └── index.d.ts      # TypeScript types for window.api
+    ├── renderer/           # React UI (sandboxed, no Node)
+    │   └── src/
+    │       ├── App.tsx
+    │       ├── main.tsx
+    │       ├── components/
+    │       │   ├── layout/     # Sidebar, shell
+    │       │   ├── machines/   # Machines CRUD UI
+    │       │   ├── parts/      # Parts list / form / details
+    │       │   ├── catalogs/   # Materials, workpiece types, ISO badge
+    │       │   └── Settings.tsx
+    │       ├── store/          # Zustand (UI state only)
+    │       └── lib/media.ts    # mediaUrl() helper
+    └── shared/             # Used by main + preload (+ types for renderer)
+        ├── schemas.ts      # Zod schemas / DTOs
+        ├── ipc-channels.ts # Channel name constants
+        ├── types.ts
+        └── index.ts
+```
+
+### What lives where
+
+| Layer | Responsibility |
+|-------|----------------|
+| `src/main` | DB, filesystem, dialogs, IPC handlers, backups |
+| `src/preload` | Thin bridge: exposes `window.api`, no business logic |
+| `src/renderer` | UI only; talks to main via `window.api` |
+| `src/shared` | Contracts shared across processes (Zod + channel names) |
 
 | Concern | Location |
 |--------|----------|
 | Database | PostgreSQL via `DATABASE_URL` (default Docker Compose) |
-| Images | `userData/images/` (DB stores **relative** paths only) |
+| Images | Electron `userData/images/` (DB stores **relative** paths only) |
 | Media URL | `media://local/<relative-path>` |
 | Security | `contextIsolation`, `nodeIntegration: false`, `sandbox: true` |
 
