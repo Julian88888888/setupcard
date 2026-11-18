@@ -1,5 +1,6 @@
 import { MaterialsPage } from './components/catalogs/MaterialsPage'
 import { WorkpieceTypesPage } from './components/catalogs/WorkpieceTypesPage'
+import { HelpPage } from './components/help/HelpPage'
 import { Sidebar } from './components/layout/Sidebar'
 import { MachinesPage } from './components/machines/MachinesPage'
 import { PartsPage } from './components/parts/PartsPage'
@@ -20,6 +21,7 @@ function App(): JSX.Element {
           {section === 'parts' && <PartsPage />}
           {section === 'materials' && <MaterialsPage />}
           {section === 'workpieceTypes' && <WorkpieceTypesPage />}
+          {section === 'help' && <HelpPage />}
           {section === 'settings' && (
             <div className="mx-auto w-full max-w-2xl">
               <header className="mb-6">

@@ -1,7 +1,13 @@
 /**
  * Curated seed lists for materials / workpiece types.
- * Categories follow ISO 513: P M K N S H.
+ * Categories follow ISO 513 workpiece groups: P M K N S H.
  * Applied once at startup when materials table is empty.
+ *
+ * Notes:
+ * - Martensitic/ferritic stainless (20Х13, 40Х13) → P (chip behaviour like steel).
+ * - Austenitic/duplex stainless → M.
+ * - Plastics/composites sit in N with non-ferrous metals.
+ * - Soft tool/bearing steels → P; hardened (>~45 HRC) variants → H.
  */
 
 export const ISO_CATEGORY_COLORS: Record<string, string> = {
@@ -14,7 +20,7 @@ export const ISO_CATEGORY_COLORS: Record<string, string> = {
 }
 
 export const MATERIAL_SEED: Array<{ name: string; category: string }> = [
-  // P — Сталь
+  // P — Сталі (вуглецеві, леговані; також мартенситні/феритні нержавіючі)
   { name: 'Ст3', category: 'P' },
   { name: 'Сталь 20', category: 'P' },
   { name: 'Сталь 45', category: 'P' },
@@ -27,19 +33,20 @@ export const MATERIAL_SEED: Array<{ name: string; category: string }> = [
   { name: 'ШХ15', category: 'P' },
   { name: 'У8А', category: 'P' },
   { name: 'У10А', category: 'P' },
-  // M — Нержавіюча сталь
+  { name: '20Х13', category: 'P' },
+  { name: '40Х13', category: 'P' },
+  // M — Аустенітні / дуплекс нержавіючі
   { name: '12Х18Н10Т', category: 'M' },
   { name: '08Х18Н10', category: 'M' },
   { name: '10Х17Н13М2', category: 'M' },
-  { name: '20Х13', category: 'M' },
-  { name: '40Х13', category: 'M' },
+  { name: '08Х17Н13М2Т', category: 'M' },
   // K — Чавун
   { name: 'СЧ15', category: 'K' },
   { name: 'СЧ20', category: 'K' },
   { name: 'СЧ25', category: 'K' },
   { name: 'ВЧ40', category: 'K' },
   { name: 'ВЧ50', category: 'K' },
-  // N — Кольорові метали
+  // N — Незалізні метали та пластики
   { name: 'АД31', category: 'N' },
   { name: 'АМц', category: 'N' },
   { name: 'Д16Т', category: 'N' },
@@ -47,14 +54,18 @@ export const MATERIAL_SEED: Array<{ name: string; category: string }> = [
   { name: 'АМг6', category: 'N' },
   { name: 'В95', category: 'N' },
   { name: 'АК6', category: 'N' },
-  { name: 'Латунь ЛС59', category: 'N' },
+  { name: 'Латунь ЛС59-1', category: 'N' },
   { name: 'Бронза БрАЖ9-4', category: 'N' },
   { name: 'Бронза ОЦС5-5-5', category: 'N' },
   { name: 'Капролон', category: 'N' },
   { name: 'Фторопласт', category: 'N' },
-  // S — Жароміцні / титан
+  // S — Жароміцні суперсплави та титан
   { name: 'Титан ВТ1-0', category: 'S' },
-  { name: 'Титан ВТ6', category: 'S' }
+  { name: 'Титан ВТ6', category: 'S' },
+  // H — Загартовані (>~45 HRC) — окремі позиції від м’якого стану
+  { name: 'ШХ15 (загартована)', category: 'H' },
+  { name: 'У10А (загартована)', category: 'H' },
+  { name: 'ХВГ (загартована)', category: 'H' }
 ]
 
 export const WORKPIECE_TYPE_SEED: string[] = [

@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { Material, MaterialCategory } from '../../../../shared/schemas'
 import { IsoGroupBadge } from './IsoGroupBadge'
 import {
   MATERIAL_CATEGORIES,
   MATERIAL_CATEGORY_DEFAULT_COLORS,
   MATERIAL_CATEGORY_LABELS,
+  MATERIAL_CATEGORY_TEXT_ON_COLOR,
   materialGroupTitle
 } from './labels'
 
@@ -17,6 +18,8 @@ export function MaterialsPage(): JSX.Element {
   const [name, setName] = useState('')
   const [category, setCategory] = useState<MaterialCategory>('P')
   const [editing, setEditing] = useState<Material | null>(null)
+  const [search, setSearch] = useState('')
+  const [filterCategory, setFilterCategory] = useState<MaterialCategory | null>(null)
 
   const reload = async (): Promise<void> => {
     setLoading(true)
@@ -33,6 +36,30 @@ export function MaterialsPage(): JSX.Element {
   useEffect(() => {
     void reload()
   }, [])
+
+  const groups = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    const filtered = materials.filter((m) => {
+      if (filterCategory && m.category !== filterCategory) return false
+      if (!q) return true
+      const label = MATERIAL_CATEGORY_LABELS[m.category].toLowerCase()
+      const title = materialGroupTitle(m.category).toLowerCase()
+      return (
+        m.name.toLowerCase().includes(q) ||
+        m.category.toLowerCase().includes(q) ||
+        label.includes(q) ||
+        title.includes(q)
+      )
+    })
+
+    return MATERIAL_CATEGORIES.map((c) => ({
+      category: c,
+      items: filtered
+        .filter((m) => m.category === c)
+        .slice()
+        .sort((a, b) => a.name.localeCompare(b.name, 'uk'))
+    })).filter((g) => g.items.length > 0)
+  }, [materials, search, filterCategory])
 
   const create = async (): Promise<void> => {
     const trimmed = name.trim()
@@ -91,6 +118,10 @@ export function MaterialsPage(): JSX.Element {
     }
   }
 
+  const toggleFilter = (c: MaterialCategory): void => {
+    setFilterCategory((prev) => (prev === c ? null : c))
+  }
+
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
       <header>
@@ -99,32 +130,60 @@ export function MaterialsPage(): JSX.Element {
           Група обробки ISO 513 задає колір (як на упаковці). Марка — окрема назва металу.
         </p>
 
-        {/* Легенда як на упаковці: ряд кольорових квадратів */}
         <div className="mt-4 overflow-hidden rounded-xl border border-white/10 bg-surface-raised/60">
           <div className="grid grid-cols-6">
-            {MATERIAL_CATEGORIES.map((c) => (
-              <div
-                key={c}
-                className="flex flex-col items-center gap-1 border-r border-black/10 px-1 py-3 last:border-r-0"
-                style={{ backgroundColor: MATERIAL_CATEGORY_DEFAULT_COLORS[c] }}
-              >
-                <span
-                  className="text-lg font-bold leading-none"
-                  style={{
-                    color: c === 'M' ? '#1A1A1A' : '#FFFFFF'
-                  }}
+            {MATERIAL_CATEGORIES.map((c) => {
+              const active = filterCategory === c
+              return (
+                <button
+                  key={c}
+                  type="button"
+                  title={
+                    active
+                      ? `Показати всі групи`
+                      : `Фільтр: ${materialGroupTitle(c)}`
+                  }
+                  onClick={() => toggleFilter(c)}
+                  className={`flex flex-col items-center gap-1 border-r border-black/10 px-1 py-3 last:border-r-0 transition ${
+                    active ? 'ring-2 ring-inset ring-white/70' : 'hover:brightness-110'
+                  }`}
+                  style={{ backgroundColor: MATERIAL_CATEGORY_DEFAULT_COLORS[c] }}
                 >
-                  {c}
-                </span>
-              </div>
-            ))}
+                  <span
+                    className="text-lg font-bold leading-none"
+                    style={{ color: MATERIAL_CATEGORY_TEXT_ON_COLOR[c] }}
+                  >
+                    {c}
+                  </span>
+                </button>
+              )
+            })}
           </div>
           <div className="grid grid-cols-6 gap-1 border-t border-white/10 bg-surface-overlay/80 px-1 py-2 text-center text-[10px] leading-tight text-ink-muted sm:text-xs">
             {MATERIAL_CATEGORIES.map((c) => (
-              <span key={c}>{MATERIAL_CATEGORY_LABELS[c]}</span>
+              <span
+                key={c}
+                className={filterCategory === c ? 'font-semibold text-ink' : undefined}
+              >
+                {MATERIAL_CATEGORY_LABELS[c]}
+              </span>
             ))}
           </div>
         </div>
+        {filterCategory && (
+          <p className="mt-2 text-xs text-ink-muted">
+            Фільтр:{' '}
+            <span className="font-medium text-ink">{materialGroupTitle(filterCategory)}</span>
+            {' · '}
+            <button
+              type="button"
+              className="text-accent underline-offset-2 hover:underline"
+              onClick={() => setFilterCategory(null)}
+            >
+              скинути
+            </button>
+          </p>
+        )}
       </header>
 
       {error && (
@@ -184,89 +243,113 @@ export function MaterialsPage(): JSX.Element {
         </div>
       </section>
 
-      <ul className="divide-y divide-white/5 overflow-hidden rounded-xl border border-white/10">
-        {materials.map((m) => (
-          <li
-            key={m.id}
-            className="flex flex-wrap items-center gap-3 bg-surface-raised/40 px-4 py-3 text-sm"
-          >
-            {editing?.id === m.id ? (
-              <>
-                <IsoGroupBadge category={editing.category} size="md" />
-                <input
-                  value={editing.name}
-                  onChange={(e) => setEditing({ ...editing, name: e.target.value })}
-                  className="min-w-[8rem] flex-1 rounded-lg border border-white/15 bg-surface-overlay px-3 py-1.5 text-ink"
-                  placeholder="Марка металу"
-                />
-                <select
-                  value={editing.category}
-                  onChange={(e) =>
-                    setEditing({
-                      ...editing,
-                      category: e.target.value as MaterialCategory,
-                      color: MATERIAL_CATEGORY_DEFAULT_COLORS[e.target.value as MaterialCategory]
-                    })
-                  }
-                  className="rounded-lg border border-white/15 bg-surface-overlay px-3 py-1.5 text-ink"
-                >
-                  {MATERIAL_CATEGORIES.map((c) => (
-                    <option key={c} value={c}>
-                      {materialGroupTitle(c)}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  onClick={() => void save()}
-                  className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-white transition hover:brightness-110"
-                >
-                  Зберегти
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setEditing(null)}
-                  className="rounded-lg border border-white/15 bg-surface-overlay px-3 py-1.5 text-sm font-medium text-ink transition hover:border-white/30"
-                >
-                  Скасувати
-                </button>
-              </>
-            ) : (
-              <>
-                <IsoGroupBadge category={m.category} size="md" />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-semibold text-ink">{m.name}</p>
-                  <p className="truncate text-xs text-ink-muted">
-                    {materialGroupTitle(m.category)}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  disabled={loading}
-                  onClick={() => setEditing(m)}
-                  className="rounded-lg border border-white/15 bg-surface-overlay px-3 py-1.5 text-sm font-medium text-ink transition hover:border-accent/50 disabled:opacity-50"
-                >
-                  Змінити
-                </button>
-                <button
-                  type="button"
-                  disabled={loading}
-                  onClick={() => void remove(m.id)}
-                  className="rounded-lg bg-red-600/90 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-red-500 disabled:opacity-50"
-                >
-                  Видалити
-                </button>
-              </>
-            )}
-          </li>
-        ))}
-        {materials.length === 0 && !loading && (
-          <li className="px-4 py-10 text-center text-ink-faint">Список порожній</li>
-        )}
-        {loading && materials.length === 0 && (
-          <li className="px-4 py-10 text-center text-ink-muted">Завантаження…</li>
-        )}
-      </ul>
+      <label className="block">
+        <span className="sr-only">Пошук матеріалів</span>
+        <input
+          type="search"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Пошук за маркою або групою (Сталь, P, Д16Т…)"
+          className="w-full rounded-lg border border-white/10 bg-surface-overlay px-3 py-2.5 text-sm text-ink outline-none placeholder:text-ink-faint focus:border-accent"
+        />
+      </label>
+
+      {loading && materials.length === 0 ? (
+        <p className="rounded-xl border border-white/10 px-4 py-10 text-center text-ink-muted">
+          Завантаження…
+        </p>
+      ) : groups.length === 0 ? (
+        <p className="rounded-xl border border-dashed border-white/15 px-4 py-10 text-center text-ink-faint">
+          {materials.length === 0
+            ? 'Список порожній'
+            : 'Нічого не знайдено за вашим запитом'}
+        </p>
+      ) : (
+        <div className="flex flex-col gap-5">
+          {groups.map((group) => (
+            <section key={group.category} className="overflow-hidden rounded-xl border border-white/10">
+              <header className="flex items-center gap-2 border-b border-white/10 bg-surface-overlay/80 px-4 py-2.5">
+                <IsoGroupBadge category={group.category} size="md" showFullLabel />
+                <span className="ml-auto text-xs text-ink-faint">{group.items.length}</span>
+              </header>
+              <ul className="divide-y divide-white/5">
+                {group.items.map((m) => (
+                  <li
+                    key={m.id}
+                    className="flex flex-wrap items-center gap-3 bg-surface-raised/40 px-4 py-3 text-sm"
+                  >
+                    {editing?.id === m.id ? (
+                      <>
+                        <IsoGroupBadge category={editing.category} size="md" />
+                        <input
+                          value={editing.name}
+                          onChange={(e) => setEditing({ ...editing, name: e.target.value })}
+                          className="min-w-[8rem] flex-1 rounded-lg border border-white/15 bg-surface-overlay px-3 py-1.5 text-ink"
+                          placeholder="Марка металу"
+                        />
+                        <select
+                          value={editing.category}
+                          onChange={(e) =>
+                            setEditing({
+                              ...editing,
+                              category: e.target.value as MaterialCategory,
+                              color:
+                                MATERIAL_CATEGORY_DEFAULT_COLORS[
+                                  e.target.value as MaterialCategory
+                                ]
+                            })
+                          }
+                          className="rounded-lg border border-white/15 bg-surface-overlay px-3 py-1.5 text-ink"
+                        >
+                          {MATERIAL_CATEGORIES.map((c) => (
+                            <option key={c} value={c}>
+                              {materialGroupTitle(c)}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() => void save()}
+                          className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-white transition hover:brightness-110"
+                        >
+                          Зберегти
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEditing(null)}
+                          className="rounded-lg border border-white/15 bg-surface-overlay px-3 py-1.5 text-sm font-medium text-ink transition hover:border-white/30"
+                        >
+                          Скасувати
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <p className="min-w-0 flex-1 truncate font-semibold text-ink">{m.name}</p>
+                        <button
+                          type="button"
+                          disabled={loading}
+                          onClick={() => setEditing(m)}
+                          className="rounded-lg border border-white/15 bg-surface-overlay px-3 py-1.5 text-sm font-medium text-ink transition hover:border-accent/50 disabled:opacity-50"
+                        >
+                          Змінити
+                        </button>
+                        <button
+                          type="button"
+                          disabled={loading}
+                          onClick={() => void remove(m.id)}
+                          className="rounded-lg bg-red-600/90 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-red-500 disabled:opacity-50"
+                        >
+                          Видалити
+                        </button>
+                      </>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

@@ -5,6 +5,7 @@ const NAV_ITEMS: Array<{ id: AppSection; label: string }> = [
   { id: 'parts', label: 'Деталі' },
   { id: 'materials', label: 'Матеріали' },
   { id: 'workpieceTypes', label: 'Типи заготовок' },
+  { id: 'help', label: 'Довідка' },
   { id: 'settings', label: 'Налаштування' }
 ]
 

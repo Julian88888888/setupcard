@@ -1,7 +1,13 @@
 import { create } from 'zustand'
 import type { Settings, AppPaths } from '../../../shared/schemas'
 
-export type AppSection = 'machines' | 'parts' | 'materials' | 'workpieceTypes' | 'settings'
+export type AppSection =
+  | 'machines'
+  | 'parts'
+  | 'materials'
+  | 'workpieceTypes'
+  | 'help'
+  | 'settings'
 
 interface AppState {
   section: AppSection
