@@ -4,6 +4,7 @@ out
 *.local
 .DS_Store
 *.log
+.env
 dev.db
 dev.db-*
 .vscode/*

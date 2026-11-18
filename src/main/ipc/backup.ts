@@ -1,25 +1,25 @@
 import { app, dialog, BrowserWindow } from 'electron'
-import { join, basename } from 'path'
+import { join } from 'path'
 import {
   existsSync,
   mkdirSync,
   copyFileSync,
   rmSync,
   readdirSync,
-  statSync
+  statSync,
+  readFileSync
 } from 'fs'
 import AdmZip from 'adm-zip'
-import Database from 'better-sqlite3'
-import { closeDatabase, getDatabasePath, getImagesPath, initDatabase } from '../db'
+import { closeDatabase, getImagesPath, getPool, initDatabase } from '../db'
 import { logger } from '../logger'
 import type { BackupResult } from '../../shared/schemas'
 
-const DB_ENTRY = 'app.db'
+const DUMP_ENTRY = 'dump.sql'
 const IMAGES_ENTRY = 'images/'
 
 /**
- * Export a zip containing app.db (+ WAL/SHM if present) and the images/ folder.
- * Checkpoint WAL first so the main DB file is consistent.
+ * Export a zip containing dump.sql (logical INSERT dump) and the images/ folder.
+ * Does not require pg_dump on the host.
  */
 export async function exportBackup(parent?: BrowserWindow | null): Promise<BackupResult> {
   try {
@@ -36,26 +36,11 @@ export async function exportBackup(parent?: BrowserWindow | null): Promise<Backu
       return { success: false, error: 'cancelled' }
     }
 
-    // Flush WAL into the main DB file before copying
-    checkpointWal()
-
+    const dumpSql = await buildLogicalDump()
     const zip = new AdmZip()
-    const dbPath = getDatabasePath()
+    zip.addFile(DUMP_ENTRY, Buffer.from(dumpSql, 'utf-8'))
+
     const imagesPath = getImagesPath()
-
-    if (!existsSync(dbPath)) {
-      return { success: false, error: 'Database file not found' }
-    }
-
-    zip.addLocalFile(dbPath, '', DB_ENTRY)
-
-    // Include sidecar files if they exist (should be empty after checkpoint)
-    for (const side of [`${dbPath}-wal`, `${dbPath}-shm`]) {
-      if (existsSync(side)) {
-        zip.addLocalFile(side, '', basename(side))
-      }
-    }
-
     if (existsSync(imagesPath)) {
       addFolderToZip(zip, imagesPath, IMAGES_ENTRY)
     }
@@ -71,7 +56,7 @@ export async function exportBackup(parent?: BrowserWindow | null): Promise<Backu
 }
 
 /**
- * Import a backup zip: replace app.db and images/, then reopen the database.
+ * Import a backup zip: restore dump.sql + images/, then reopen the database.
  */
 export async function importBackup(parent?: BrowserWindow | null): Promise<BackupResult> {
   try {
@@ -92,9 +77,11 @@ export async function importBackup(parent?: BrowserWindow | null): Promise<Backu
     const zip = new AdmZip(zipPath)
     const entries = zip.getEntries()
 
-    const dbEntry = entries.find((e) => e.entryName === DB_ENTRY || e.entryName.endsWith(`/${DB_ENTRY}`))
-    if (!dbEntry || dbEntry.isDirectory) {
-      return { success: false, error: 'Backup does not contain app.db' }
+    const dumpEntry = entries.find(
+      (e) => e.entryName === DUMP_ENTRY || e.entryName.endsWith(`/${DUMP_ENTRY}`)
+    )
+    if (!dumpEntry || dumpEntry.isDirectory) {
+      return { success: false, error: 'Backup does not contain dump.sql' }
     }
 
     const userData = app.getPath('userData')
@@ -104,31 +91,43 @@ export async function importBackup(parent?: BrowserWindow | null): Promise<Backu
 
     zip.extractAllTo(staging, true)
 
-    const stagedDb = join(staging, DB_ENTRY)
-    if (!existsSync(stagedDb)) {
-      // Some zips nest the file — search one level
-      const nested = findFile(staging, DB_ENTRY)
+    let stagedDump = join(staging, DUMP_ENTRY)
+    if (!existsSync(stagedDump)) {
+      const nested = findFile(staging, DUMP_ENTRY)
       if (!nested) {
         rmSync(staging, { recursive: true, force: true })
-        return { success: false, error: 'Could not extract app.db from backup' }
+        return { success: false, error: 'Could not extract dump.sql from backup' }
       }
-      copyFileSync(nested, stagedDb)
+      stagedDump = nested
     }
 
-    // Close DB before replacing files
-    closeDatabase()
+    const dumpSql = readFileSync(stagedDump, 'utf-8')
+    const pool = getPool()
 
-    const dbPath = getDatabasePath()
+    const client = await pool.connect()
+    try {
+      await client.query('BEGIN')
+      await client.query(`
+        TRUNCATE TABLE
+          part_photos,
+          parts,
+          materials,
+          workpiece_types,
+          machines,
+          items,
+          settings
+        RESTART IDENTITY CASCADE
+      `)
+      await client.query(dumpSql)
+      await client.query('COMMIT')
+    } catch (err) {
+      await client.query('ROLLBACK')
+      throw err
+    } finally {
+      client.release()
+    }
+
     const imagesPath = getImagesPath()
-
-    // Remove old WAL/SHM so we don't mix with a restored DB
-    for (const side of [`${dbPath}-wal`, `${dbPath}-shm`]) {
-      rmSync(side, { force: true })
-    }
-
-    copyFileSync(stagedDb, dbPath)
-
-    // Replace images folder
     rmSync(imagesPath, { recursive: true, force: true })
     mkdirSync(imagesPath, { recursive: true })
 
@@ -139,17 +138,14 @@ export async function importBackup(parent?: BrowserWindow | null): Promise<Backu
 
     rmSync(staging, { recursive: true, force: true })
 
-    // Reopen DB + run migrations (in case backup is from an older schema)
-    initDatabase()
-
     logger.info('Backup imported from:', zipPath)
     return { success: true, path: zipPath }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     logger.error('Backup import failed:', message)
-    // Best-effort reopen so the app stays usable
     try {
-      initDatabase()
+      await closeDatabase()
+      await initDatabase()
     } catch (reopenErr) {
       logger.error('Failed to reopen database after import error:', reopenErr)
     }
@@ -157,15 +153,101 @@ export async function importBackup(parent?: BrowserWindow | null): Promise<Backu
   }
 }
 
-function checkpointWal(): void {
-  try {
-    // Short-lived connection so we can TRUNCATE-checkpoint without going through Drizzle
-    const tmp = new Database(getDatabasePath())
-    tmp.pragma('wal_checkpoint(TRUNCATE)')
-    tmp.close()
-  } catch (err) {
-    logger.warn('WAL checkpoint skipped:', err)
+async function buildLogicalDump(): Promise<string> {
+  const pool = getPool()
+  const lines: string[] = [
+    '-- SetupCard logical dump',
+    'SET session_replication_role = replica;',
+    ''
+  ]
+
+  const tables: Array<{
+    table: string
+    sequence: string
+    select: string
+  }> = [
+    {
+      table: 'settings',
+      sequence: '',
+      select: 'SELECT key, value FROM settings'
+    },
+    {
+      table: 'items',
+      sequence: 'items_id_seq',
+      select:
+        'SELECT id, title, description, image_path, created_at, updated_at FROM items ORDER BY id'
+    },
+    {
+      table: 'machines',
+      sequence: 'machines_id_seq',
+      select: `SELECT id, name, inventory_number, machine_type, control_system_type, spindle_taper,
+        max_spindle_speed, magazine_capacity, max_tool_length, max_tool_diameter, max_tool_weight,
+        table_size, axis_travel, table_load_capacity, max_workpiece_size, number_of_tables,
+        photo_path, notes, created_at, updated_at FROM machines ORDER BY id`
+    },
+    {
+      table: 'materials',
+      sequence: 'materials_id_seq',
+      select:
+        'SELECT id, name, category, color, notes, created_at, updated_at FROM materials ORDER BY id'
+    },
+    {
+      table: 'workpiece_types',
+      sequence: 'workpiece_types_id_seq',
+      select:
+        'SELECT id, name, notes, created_at, updated_at FROM workpiece_types ORDER BY id'
+    },
+    {
+      table: 'parts',
+      sequence: 'parts_id_seq',
+      select: `SELECT id, code, name, material_id, workpiece_type_id, notes, created_at, updated_at
+        FROM parts ORDER BY id`
+    },
+    {
+      table: 'part_photos',
+      sequence: 'part_photos_id_seq',
+      select: 'SELECT id, part_id, photo_path, sort_order FROM part_photos ORDER BY id'
+    }
+  ]
+
+  for (const spec of tables) {
+    const result = await pool.query(spec.select)
+    if (result.rows.length === 0) continue
+
+    const columns = result.fields.map((f) => f.name)
+    for (const row of result.rows) {
+      const values = columns.map((col) => sqlLiteral((row as Record<string, unknown>)[col]))
+      lines.push(
+        `INSERT INTO ${spec.table} (${columns.map(quoteIdent).join(', ')}) VALUES (${values.join(', ')});`
+      )
+    }
+
+    if (spec.sequence) {
+      lines.push(
+        `SELECT setval('${spec.sequence}', COALESCE((SELECT MAX(id) FROM ${spec.table}), 1), true);`
+      )
+    }
+    lines.push('')
   }
+
+  lines.push('SET session_replication_role = DEFAULT;')
+  lines.push('')
+  return lines.join('\n')
+}
+
+function sqlLiteral(value: unknown): string {
+  if (value === null || value === undefined) return 'NULL'
+  if (typeof value === 'number') {
+    if (Number.isNaN(value)) return 'NULL'
+    return String(value)
+  }
+  if (typeof value === 'boolean') return value ? 'TRUE' : 'FALSE'
+  const text = String(value)
+  return `'${text.replace(/'/g, "''")}'`
+}
+
+function quoteIdent(name: string): string {
+  return `"${name.replace(/"/g, '""')}"`
 }
 
 function addFolderToZip(zip: AdmZip, folderPath: string, zipPrefix: string): void {

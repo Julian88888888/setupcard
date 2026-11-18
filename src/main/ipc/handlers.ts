@@ -1,6 +1,6 @@
 import { ipcMain, BrowserWindow } from 'electron'
 import { eq } from 'drizzle-orm'
-import { getDb, getDatabasePath, getImagesPath, schema } from '../db'
+import { getDb, getDatabaseUrlForDisplay, getImagesPath, schema } from '../db'
 import { IpcChannels } from '../../shared/ipc-channels'
 import {
   SettingsSchema,
@@ -28,34 +28,34 @@ export function registerIpcHandlers(): void {
   // ── Settings ──────────────────────────────────────────────────────────────
 
   ipcMain.handle(IpcChannels.SETTINGS_GET, async () => {
-    return readSettings()
+    return await readSettings()
   })
 
   ipcMain.handle(IpcChannels.SETTINGS_SET, async (_event, raw: unknown) => {
     const update = SettingsUpdateSchema.parse(raw)
-    const current = readSettings()
+    const current = await readSettings()
     const next: Settings = { ...current, ...update }
-    writeSettings(next)
+    await writeSettings(next)
     return next
   })
 
   // ── Items CRUD ────────────────────────────────────────────────────────────
 
   ipcMain.handle(IpcChannels.ITEMS_LIST, async () => {
-    const rows = getDb().select().from(schema.items).all()
+    const rows = await getDb().select().from(schema.items)
     return rows.map(mapItem)
   })
 
   ipcMain.handle(IpcChannels.ITEMS_GET, async (_event, raw: unknown) => {
     const { id } = ItemIdSchema.parse(typeof raw === 'number' ? { id: raw } : raw)
-    const row = getDb().select().from(schema.items).where(eq(schema.items.id, id)).get()
-    return row ? mapItem(row) : null
+    const rows = await getDb().select().from(schema.items).where(eq(schema.items.id, id)).limit(1)
+    return rows[0] ? mapItem(rows[0]) : null
   })
 
   ipcMain.handle(IpcChannels.ITEMS_CREATE, async (_event, raw: unknown) => {
     const data = ItemCreateSchema.parse(raw)
     const now = new Date().toISOString()
-    const result = getDb()
+    const [result] = await getDb()
       .insert(schema.items)
       .values({
         title: data.title,
@@ -65,19 +65,22 @@ export function registerIpcHandlers(): void {
         updatedAt: now
       })
       .returning()
-      .get()
     return mapItem(result)
   })
 
   ipcMain.handle(IpcChannels.ITEMS_UPDATE, async (_event, raw: unknown) => {
     const data = ItemUpdateSchema.parse(raw)
     const { id, ...fields } = data
-    const existing = getDb().select().from(schema.items).where(eq(schema.items.id, id)).get()
-    if (!existing) {
+    const existing = await getDb()
+      .select()
+      .from(schema.items)
+      .where(eq(schema.items.id, id))
+      .limit(1)
+    if (!existing[0]) {
       throw new Error(`Item ${id} not found`)
     }
 
-    const result = getDb()
+    const [result] = await getDb()
       .update(schema.items)
       .set({
         ...(fields.title !== undefined ? { title: fields.title } : {}),
@@ -87,14 +90,13 @@ export function registerIpcHandlers(): void {
       })
       .where(eq(schema.items.id, id))
       .returning()
-      .get()
 
     return mapItem(result)
   })
 
   ipcMain.handle(IpcChannels.ITEMS_DELETE, async (_event, raw: unknown) => {
     const { id } = ItemIdSchema.parse(typeof raw === 'number' ? { id: raw } : raw)
-    getDb().delete(schema.items).where(eq(schema.items.id, id)).run()
+    await getDb().delete(schema.items).where(eq(schema.items.id, id))
     return { success: true }
   })
 
@@ -129,30 +131,29 @@ export function registerIpcHandlers(): void {
     return {
       userData: app.getPath('userData'),
       images: getImagesPath(),
-      database: getDatabasePath()
+      database: getDatabaseUrlForDisplay()
     }
   })
 
   logger.info('IPC handlers registered')
 }
 
-function readSettings(): Settings {
-  const rows = getDb().select().from(schema.settings).all()
+async function readSettings(): Promise<Settings> {
+  const rows = await getDb().select().from(schema.settings)
   const map = Object.fromEntries(rows.map((r) => [r.key, safeJsonParse(r.value)]))
   return SettingsSchema.parse({ ...DEFAULT_SETTINGS, ...map })
 }
 
-function writeSettings(settings: Settings): void {
+async function writeSettings(settings: Settings): Promise<void> {
   const db = getDb()
-  // Persist each top-level key as its own row
   for (const [key, value] of Object.entries(settings)) {
-    db.insert(schema.settings)
+    await db
+      .insert(schema.settings)
       .values({ key, value: JSON.stringify(value) })
       .onConflictDoUpdate({
         target: schema.settings.key,
         set: { value: JSON.stringify(value) }
       })
-      .run()
   }
 }
 

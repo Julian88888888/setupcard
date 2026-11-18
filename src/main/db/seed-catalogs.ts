@@ -1,7 +1,18 @@
 /**
  * Curated seed lists for materials / workpiece types.
  * Categories follow ISO 513: P M K N S H.
+ * Applied once at startup when materials table is empty.
  */
+
+export const ISO_CATEGORY_COLORS: Record<string, string> = {
+  P: '#1E5AA8',
+  M: '#E8B923',
+  K: '#C62828',
+  N: '#2E7D32',
+  S: '#8D4E2A',
+  H: '#424242'
+}
+
 export const MATERIAL_SEED: Array<{ name: string; category: string }> = [
   // P — Сталь
   { name: 'Ст3', category: 'P' },

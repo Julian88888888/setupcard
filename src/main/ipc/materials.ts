@@ -13,11 +13,10 @@ import { logger } from '../logger'
 
 export function registerMaterialHandlers(): void {
   ipcMain.handle(IpcChannels.MATERIALS_LIST, async () => {
-    const rows = getDb()
+    const rows = await getDb()
       .select()
       .from(schema.materials)
-      .orderBy(sql`${schema.materials.name} COLLATE NOCASE`)
-      .all()
+      .orderBy(sql`lower(${schema.materials.name})`)
     return rows.map(mapMaterial)
   })
 
@@ -25,7 +24,7 @@ export function registerMaterialHandlers(): void {
     const data = MaterialCreateSchema.parse(raw)
     const now = new Date().toISOString()
     try {
-      const row = getDb()
+      const [row] = await getDb()
         .insert(schema.materials)
         .values({
           name: data.name.trim(),
@@ -36,7 +35,6 @@ export function registerMaterialHandlers(): void {
           updatedAt: now
         })
         .returning()
-        .get()
       logger.info('Material created:', row.id)
       return mapMaterial(row)
     } catch (err) {
@@ -46,18 +44,18 @@ export function registerMaterialHandlers(): void {
 
   ipcMain.handle(IpcChannels.MATERIALS_UPDATE, async (_event, raw: unknown) => {
     const data = MaterialUpdateSchema.parse(raw)
-    const existing = getDb()
+    const existing = await getDb()
       .select()
       .from(schema.materials)
       .where(eq(schema.materials.id, data.id))
-      .get()
-    if (!existing) {
+      .limit(1)
+    if (!existing[0]) {
       throw new Error(`Material ${data.id} not found`)
     }
 
     const now = new Date().toISOString()
     try {
-      const row = getDb()
+      const [row] = await getDb()
         .update(schema.materials)
         .set({
           ...(data.name !== undefined ? { name: data.name.trim() } : {}),
@@ -68,7 +66,6 @@ export function registerMaterialHandlers(): void {
         })
         .where(eq(schema.materials.id, data.id))
         .returning()
-        .get()
       return mapMaterial(row)
     } catch (err) {
       throw uniqueNameError(err, 'Матеріал з такою назвою вже існує')
@@ -77,18 +74,17 @@ export function registerMaterialHandlers(): void {
 
   ipcMain.handle(IpcChannels.MATERIALS_DELETE, async (_event, raw: unknown) => {
     const { id } = MaterialIdSchema.parse(typeof raw === 'number' ? { id: raw } : raw)
-    const usage =
-      getDb()
-        .select({ value: count() })
-        .from(schema.parts)
-        .where(eq(schema.parts.materialId, id))
-        .get()?.value ?? 0
+    const usageRows = await getDb()
+      .select({ value: count() })
+      .from(schema.parts)
+      .where(eq(schema.parts.materialId, id))
+    const usage = usageRows[0]?.value ?? 0
 
     if (usage > 0) {
       throw new Error(`Неможливо видалити: матеріал використовується в ${usage} детал(ях)`)
     }
 
-    getDb().delete(schema.materials).where(eq(schema.materials.id, id)).run()
+    await getDb().delete(schema.materials).where(eq(schema.materials.id, id))
     return { success: true }
   })
 }
