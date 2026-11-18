@@ -2,7 +2,7 @@ import { randomUUID } from 'crypto'
 import { copyFileSync, existsSync, mkdirSync, unlinkSync } from 'fs'
 import { extname, join } from 'path'
 import { BrowserWindow, dialog, ipcMain } from 'electron'
-import { eq, like, or, sql } from 'drizzle-orm'
+import { eq, ilike, or, sql } from 'drizzle-orm'
 import { getDb, getImagesPath, getMachinesImagesPath, schema } from '../db'
 import { IpcChannels } from '../../shared/ipc-channels'
 import {
@@ -34,39 +34,41 @@ export function registerMachineHandlers(): void {
     const trimmed = query.trim()
 
     if (!trimmed) {
-      return db
+      const rows = await db
         .select()
         .from(schema.machines)
-        .orderBy(sql`${schema.machines.name} COLLATE NOCASE`)
-        .all()
-        .map(mapMachine)
+        .orderBy(sql`lower(${schema.machines.name})`)
+      return rows.map(mapMachine)
     }
 
     const pattern = `%${escapeLike(trimmed)}%`
-    return db
+    const rows = await db
       .select()
       .from(schema.machines)
       .where(
         or(
-          like(schema.machines.name, pattern),
-          like(schema.machines.inventoryNumber, pattern)
+          ilike(schema.machines.name, pattern),
+          ilike(schema.machines.inventoryNumber, pattern)
         )
       )
-      .orderBy(sql`${schema.machines.name} COLLATE NOCASE`)
-      .all()
-      .map(mapMachine)
+      .orderBy(sql`lower(${schema.machines.name})`)
+    return rows.map(mapMachine)
   })
 
   ipcMain.handle(IpcChannels.MACHINES_GET, async (_event, raw: unknown) => {
     const { id } = MachineIdSchema.parse(typeof raw === 'number' ? { id: raw } : raw)
-    const row = getDb().select().from(schema.machines).where(eq(schema.machines.id, id)).get()
-    return row ? mapMachine(row) : null
+    const rows = await getDb()
+      .select()
+      .from(schema.machines)
+      .where(eq(schema.machines.id, id))
+      .limit(1)
+    return rows[0] ? mapMachine(rows[0]) : null
   })
 
   ipcMain.handle(IpcChannels.MACHINES_CREATE, async (_event, raw: unknown) => {
     const data = MachineCreateSchema.parse(raw)
     const now = new Date().toISOString()
-    const result = getDb()
+    const [result] = await getDb()
       .insert(schema.machines)
       .values({
         name: data.name,
@@ -90,7 +92,6 @@ export function registerMachineHandlers(): void {
         updatedAt: now
       })
       .returning()
-      .get()
 
     return mapMachine(result)
   })
@@ -98,7 +99,12 @@ export function registerMachineHandlers(): void {
   ipcMain.handle(IpcChannels.MACHINES_UPDATE, async (_event, raw: unknown) => {
     const data = MachineUpdateSchema.parse(raw)
     const { id, ...fields } = data
-    const existing = getDb().select().from(schema.machines).where(eq(schema.machines.id, id)).get()
+    const existingRows = await getDb()
+      .select()
+      .from(schema.machines)
+      .where(eq(schema.machines.id, id))
+      .limit(1)
+    const existing = existingRows[0]
     if (!existing) {
       throw new Error(`Machine ${id} not found`)
     }
@@ -106,7 +112,7 @@ export function registerMachineHandlers(): void {
     const nextPhotoPath =
       fields.photoPath !== undefined ? fields.photoPath : existing.photoPath
 
-    const result = getDb()
+    const [result] = await getDb()
       .update(schema.machines)
       .set({
         ...(fields.name !== undefined ? { name: fields.name } : {}),
@@ -146,9 +152,7 @@ export function registerMachineHandlers(): void {
       })
       .where(eq(schema.machines.id, id))
       .returning()
-      .get()
 
-    // Remove previous photo file when path changed or cleared
     if (
       fields.photoPath !== undefined &&
       existing.photoPath &&
@@ -162,11 +166,15 @@ export function registerMachineHandlers(): void {
 
   ipcMain.handle(IpcChannels.MACHINES_DELETE, async (_event, raw: unknown) => {
     const { id } = MachineIdSchema.parse(typeof raw === 'number' ? { id: raw } : raw)
-    const existing = getDb().select().from(schema.machines).where(eq(schema.machines.id, id)).get()
-    if (existing?.photoPath) {
-      deleteImageFile(existing.photoPath)
+    const existingRows = await getDb()
+      .select()
+      .from(schema.machines)
+      .where(eq(schema.machines.id, id))
+      .limit(1)
+    if (existingRows[0]?.photoPath) {
+      deleteImageFile(existingRows[0].photoPath)
     }
-    getDb().delete(schema.machines).where(eq(schema.machines.id, id)).run()
+    await getDb().delete(schema.machines).where(eq(schema.machines.id, id))
     return { success: true }
   })
 

@@ -20,7 +20,7 @@ interface AppState {
 }
 
 /**
- * Zustand store — UI state lives here; persistent data goes through window.api → main → SQLite.
+ * Zustand store — UI state lives here; persistent data goes through window.api → main → PostgreSQL.
  */
 export const useAppStore = create<AppState>((set, get) => ({
   section: 'machines',

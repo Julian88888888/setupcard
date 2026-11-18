@@ -1,4 +1,7 @@
 import { defineConfig } from 'drizzle-kit'
+import { config as loadEnv } from 'dotenv'
+
+loadEnv()
 
 /**
  * Drizzle Kit config — used only for generating migrations (`npm run db:generate`).
@@ -7,9 +10,10 @@ import { defineConfig } from 'drizzle-kit'
 export default defineConfig({
   schema: './src/main/db/schema.ts',
   out: './src/main/db/migrations',
-  dialect: 'sqlite',
+  dialect: 'postgresql',
   dbCredentials: {
-    // Path is irrelevant for generation; runtime uses userData/app.db
-    url: './dev.db'
+    url:
+      process.env.DATABASE_URL ??
+      'postgresql://setupcard:setupcard@127.0.0.1:5432/setupcard'
   }
 })

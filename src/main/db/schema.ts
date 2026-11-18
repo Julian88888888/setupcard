@@ -1,15 +1,14 @@
-import { integer, real, sqliteTable, text } from 'drizzle-orm/sqlite-core'
+import { integer, pgTable, real, serial, text } from 'drizzle-orm/pg-core'
 
 /**
- * Drizzle schema — source of truth for the SQLite database.
+ * Drizzle schema — source of truth for the PostgreSQL database.
  * Run `npm run db:generate` after changing this file to create a new migration.
  *
  * Stage-2 hook: materials.category is the contract for future tool compatibility rules.
- * Tables `tools` / `compatibility_rules` are intentionally not created yet.
  */
 
 /** Key/value settings store */
-export const settings = sqliteTable('settings', {
+export const settings = pgTable('settings', {
   key: text('key').primaryKey(),
   value: text('value').notNull()
 })
@@ -18,8 +17,8 @@ export const settings = sqliteTable('settings', {
  * Example items table.
  * imagePath stores a relative path under userData/images/ (never an absolute path).
  */
-export const items = sqliteTable('items', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
+export const items = pgTable('items', {
+  id: serial('id').primaryKey(),
   title: text('title').notNull(),
   description: text('description').notNull().default(''),
   imagePath: text('image_path'),
@@ -35,8 +34,8 @@ export const items = sqliteTable('items', {
  * CNC / machining equipment registry.
  * photoPath is relative under userData/images/, e.g. "machines/abc.jpg".
  */
-export const machines = sqliteTable('machines', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
+export const machines = pgTable('machines', {
+  id: serial('id').primaryKey(),
   name: text('name').notNull(),
   inventoryNumber: text('inventory_number').notNull(),
   machineType: text('machine_type').notNull().default(''),
@@ -66,10 +65,10 @@ export const machines = sqliteTable('machines', {
 
 /**
  * Material catalog — foundation for future tool↔material compatibility.
- * category groups grades (steel, aluminum, …) for warning rules later.
+ * category uses ISO 513 groups (P M K N S H).
  */
-export const materials = sqliteTable('materials', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
+export const materials = pgTable('materials', {
+  id: serial('id').primaryKey(),
   name: text('name').notNull().unique(),
   /** ISO 513 group: P | M | K | N | S | H */
   category: text('category').notNull().default('P'),
@@ -85,8 +84,8 @@ export const materials = sqliteTable('materials', {
 })
 
 /** Workpiece type catalog (Пруток, Лист, …). */
-export const workpieceTypes = sqliteTable('workpiece_types', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
+export const workpieceTypes = pgTable('workpiece_types', {
+  id: serial('id').primaryKey(),
   name: text('name').notNull().unique(),
   notes: text('notes').notNull().default(''),
   createdAt: text('created_at')
@@ -101,8 +100,8 @@ export const workpieceTypes = sqliteTable('workpiece_types', {
  * Parts (Деталі) — flat machining cards.
  * Photos live in part_photos (relative under userData/images/parts/).
  */
-export const parts = sqliteTable('parts', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
+export const parts = pgTable('parts', {
+  id: serial('id').primaryKey(),
   code: text('code').notNull(),
   name: text('name').notNull(),
   materialId: integer('material_id').references(() => materials.id, { onDelete: 'set null' }),
@@ -119,8 +118,8 @@ export const parts = sqliteTable('parts', {
 })
 
 /** Multiple photos per part — relative paths under images/parts/. */
-export const partPhotos = sqliteTable('part_photos', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
+export const partPhotos = pgTable('part_photos', {
+  id: serial('id').primaryKey(),
   partId: integer('part_id')
     .notNull()
     .references(() => parts.id, { onDelete: 'cascade' }),

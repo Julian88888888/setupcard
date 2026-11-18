@@ -1,13 +1,13 @@
 # SetupCard
 
-Basic Electron desktop app scaffold with SQLite, React, and a secure IPC boundary.
+Electron desktop app for machining setup cards — PostgreSQL, React, and a secure IPC boundary.
 
 ## Stack
 
 - **Electron** + **electron-vite**
 - **React** + **TypeScript** + **Tailwind CSS**
 - **Zustand** (renderer state)
-- **better-sqlite3** + **Drizzle ORM** (main process)
+- **PostgreSQL** (Docker Compose) + **Drizzle ORM** + **pg** (main process)
 - **Zod** (validate all renderer → main payloads)
 - **electron-builder** (packaging)
 - **electron-log** (logging)
@@ -24,32 +24,46 @@ src/
 
 | Concern | Location |
 |--------|----------|
-| SQLite path | `userData/app.db` |
+| Database | PostgreSQL via `DATABASE_URL` (default Docker Compose) |
 | Images | `userData/images/` (DB stores **relative** paths only) |
 | Media URL | `media://local/<relative-path>` |
-| WAL | `journal_mode=WAL`, `synchronous=NORMAL` |
 | Security | `contextIsolation`, `nodeIntegration: false`, `sandbox: true` |
+
+## Prerequisites
+
+1. **Docker Desktop** (for local PostgreSQL)
+2. Node.js + npm
+
+## Setup
+
+```bash
+cp .env.example .env
+npm install
+npm run db:up          # start Postgres on localhost:5432
+npm run dev            # migrations + catalog seed run on startup
+```
+
+Default connection:
+
+```
+postgresql://setupcard:setupcard@127.0.0.1:5432/setupcard
+```
 
 ## Scripts
 
 ```bash
-npm install
+npm run db:up        # docker compose up -d
+npm run db:down      # docker compose down
+npm run db:generate  # drizzle-kit generate after schema changes
+npm run db:studio    # drizzle-kit studio
 npm run dev          # development with HMR
 npm run build        # compile main/preload/renderer
-npm run dist         # build + electron-builder
-npm run db:generate  # drizzle-kit generate after schema changes
-```
-
-If `better-sqlite3` fails to compile against a very new Node (no prebuild / no Python), install without scripts and rebuild for Electron:
-
-```bash
-npm install --ignore-scripts
-npm run rebuild:native
+npm run dist:win     # Windows installer
 ```
 
 ## Notes
 
-- Native module `better-sqlite3` is externalized and listed in `asarUnpack`.
 - Migrations run automatically on startup from `src/main/db/migrations` (dev) or `resources/migrations` (packaged).
-- Backup zip contains `app.db` + `images/`.
+- Catalog seed (materials / workpiece types) runs once when `materials` is empty.
+- Backup zip contains `dump.sql` + `images/` (no `pg_dump` required on the host).
 - Renderer talks to main only through `window.api` (preload `contextBridge`); all IPC inputs are Zod-validated.

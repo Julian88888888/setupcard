@@ -1,4 +1,4 @@
-import { app, BrowserWindow, shell } from 'electron'
+import { app, BrowserWindow, dialog, shell } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from './utils/electron-toolkit'
 import { initDatabase, closeDatabase } from './db'
@@ -44,7 +44,7 @@ function createWindow(): void {
   }
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   electronApp.setAppUserModelId('com.setupcard.app')
 
   // Dev: F12 toggles DevTools; ignore Cmd/Ctrl+R in production
@@ -53,12 +53,14 @@ app.whenReady().then(() => {
   })
 
   try {
-    initDatabase()
+    await initDatabase()
     registerMediaProtocol()
     registerIpcHandlers()
     createWindow()
   } catch (err) {
-    logger.error('Startup failed:', err)
+    const message = err instanceof Error ? err.message : String(err)
+    logger.error('Startup failed:', message)
+    dialog.showErrorBox('SetupCard — помилка бази даних', message)
     app.quit()
     return
   }
@@ -77,5 +79,5 @@ app.on('window-all-closed', () => {
 })
 
 app.on('before-quit', () => {
-  closeDatabase()
+  void closeDatabase()
 })

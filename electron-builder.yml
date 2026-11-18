@@ -10,11 +10,9 @@ files:
   - '!{.eslintignore,.eslintrc.cjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
   - '!drizzle.config.ts'
+  - '!docker-compose.yml'
   - '!tailwind.config.js'
   - '!postcss.config.js'
-# Native modules must be unpacked from asar so Node can load the .node binary
-asarUnpack:
-  - 'node_modules/better-sqlite3/**'
 extraResources:
   - from: src/main/db/migrations
     to: migrations

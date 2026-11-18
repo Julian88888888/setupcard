@@ -1,61 +1,12 @@
 {
   "version": "7",
-  "dialect": "sqlite",
+  "dialect": "postgresql",
   "entries": [
     {
       "idx": 0,
-      "version": "6",
-      "when": 1731410000000,
+      "version": "7",
+      "when": 1732300000000,
       "tag": "0000_initial",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "6",
-      "when": 1731600000000,
-      "tag": "0001_machines",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "6",
-      "when": 1731700000000,
-      "tag": "0002_tool_dims_text",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "6",
-      "when": 1731800000000,
-      "tag": "0003_parts",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "6",
-      "when": 1731900000000,
-      "tag": "0004_simplify_parts",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "6",
-      "when": 1732000000000,
-      "tag": "0005_part_photos",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "6",
-      "when": 1732100000000,
-      "tag": "0006_material_color",
-      "breakpoints": true
-    },
-    {
-      "idx": 7,
-      "version": "6",
-      "when": 1732200000000,
-      "tag": "0007_iso_material_groups",
       "breakpoints": true
     }
   ]

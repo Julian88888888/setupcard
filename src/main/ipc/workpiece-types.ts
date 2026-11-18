@@ -12,11 +12,10 @@ import { logger } from '../logger'
 
 export function registerWorkpieceTypeHandlers(): void {
   ipcMain.handle(IpcChannels.WORKPIECE_TYPES_LIST, async () => {
-    const rows = getDb()
+    const rows = await getDb()
       .select()
       .from(schema.workpieceTypes)
-      .orderBy(sql`${schema.workpieceTypes.name} COLLATE NOCASE`)
-      .all()
+      .orderBy(sql`lower(${schema.workpieceTypes.name})`)
     return rows.map(mapWorkpieceType)
   })
 
@@ -24,7 +23,7 @@ export function registerWorkpieceTypeHandlers(): void {
     const data = WorkpieceTypeCreateSchema.parse(raw)
     const now = new Date().toISOString()
     try {
-      const row = getDb()
+      const [row] = await getDb()
         .insert(schema.workpieceTypes)
         .values({
           name: data.name.trim(),
@@ -33,7 +32,6 @@ export function registerWorkpieceTypeHandlers(): void {
           updatedAt: now
         })
         .returning()
-        .get()
       logger.info('Workpiece type created:', row.id)
       return mapWorkpieceType(row)
     } catch (err) {
@@ -43,18 +41,18 @@ export function registerWorkpieceTypeHandlers(): void {
 
   ipcMain.handle(IpcChannels.WORKPIECE_TYPES_UPDATE, async (_event, raw: unknown) => {
     const data = WorkpieceTypeUpdateSchema.parse(raw)
-    const existing = getDb()
+    const existing = await getDb()
       .select()
       .from(schema.workpieceTypes)
       .where(eq(schema.workpieceTypes.id, data.id))
-      .get()
-    if (!existing) {
+      .limit(1)
+    if (!existing[0]) {
       throw new Error(`Workpiece type ${data.id} not found`)
     }
 
     const now = new Date().toISOString()
     try {
-      const row = getDb()
+      const [row] = await getDb()
         .update(schema.workpieceTypes)
         .set({
           ...(data.name !== undefined ? { name: data.name.trim() } : {}),
@@ -63,7 +61,6 @@ export function registerWorkpieceTypeHandlers(): void {
         })
         .where(eq(schema.workpieceTypes.id, data.id))
         .returning()
-        .get()
       return mapWorkpieceType(row)
     } catch (err) {
       throw uniqueNameError(err, 'Тип заготовки з такою назвою вже існує')
@@ -72,18 +69,17 @@ export function registerWorkpieceTypeHandlers(): void {
 
   ipcMain.handle(IpcChannels.WORKPIECE_TYPES_DELETE, async (_event, raw: unknown) => {
     const { id } = WorkpieceTypeIdSchema.parse(typeof raw === 'number' ? { id: raw } : raw)
-    const usage =
-      getDb()
-        .select({ value: count() })
-        .from(schema.parts)
-        .where(eq(schema.parts.workpieceTypeId, id))
-        .get()?.value ?? 0
+    const usageRows = await getDb()
+      .select({ value: count() })
+      .from(schema.parts)
+      .where(eq(schema.parts.workpieceTypeId, id))
+    const usage = usageRows[0]?.value ?? 0
 
     if (usage > 0) {
       throw new Error(`Неможливо видалити: тип заготовки використовується в ${usage} детал(ях)`)
     }
 
-    getDb().delete(schema.workpieceTypes).where(eq(schema.workpieceTypes.id, id)).run()
+    await getDb().delete(schema.workpieceTypes).where(eq(schema.workpieceTypes.id, id))
     return { success: true }
   })
 }

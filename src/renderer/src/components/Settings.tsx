@@ -112,7 +112,7 @@ export function SettingsPanel(): JSX.Element {
               </dd>
             </div>
             <div className="flex gap-2">
-              <dt className="shrink-0">БД:</dt>
+              <dt className="shrink-0">PostgreSQL:</dt>
               <dd className="truncate font-mono" title={paths.database}>
                 {paths.database}
               </dd>
