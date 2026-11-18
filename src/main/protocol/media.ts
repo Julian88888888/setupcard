@@ -1,8 +1,8 @@
 import { protocol, net } from 'electron'
-import { join, normalize, relative, resolve, sep } from 'path'
 import { pathToFileURL } from 'url'
 import { getImagesPath } from '../db'
 import { logger } from '../logger'
+import { resolveSafeImagePathFromRoot } from './media-path'
 
 /**
  * Custom protocol: media://local/<relative-path>
@@ -15,7 +15,6 @@ import { logger } from '../logger'
  */
 
 const SCHEME = 'media'
-const HOST = 'local'
 
 /** Call in app lifecycle before `ready` so the scheme can use standard fetch APIs. */
 export function registerMediaScheme(): void {
@@ -57,44 +56,7 @@ export function registerMediaProtocol(): void {
  * Returns null if the path is unsafe or empty.
  */
 export function resolveSafeImagePath(requestUrl: string): string | null {
-  let pathname: string
-  try {
-    const url = new URL(requestUrl)
-    if (url.protocol !== `${SCHEME}:` || url.hostname !== HOST) {
-      return null
-    }
-    pathname = decodeURIComponent(url.pathname).replace(/^\/+/, '')
-  } catch {
-    return null
-  }
-
-  if (!pathname || pathname.includes('\0')) {
-    return null
-  }
-
-  const imagesRoot = resolve(getImagesPath())
-
-  // Strip any drive letter / absolute prefix, normalize, reject ".." segments
-  const candidate = normalize(pathname)
-    .replace(/^[A-Za-z]:/, '')
-    .replace(/^[/\\]+/, '')
-
-  if (!candidate || candidate.split(/[/\\]/).includes('..')) {
-    return null
-  }
-
-  const resolved = resolve(join(imagesRoot, candidate))
-  const rel = relative(imagesRoot, resolved)
-
-  // Outside imagesRoot → relative path starts with .. or is absolute
-  if (!rel || rel.startsWith('..') || resolve(rel) === rel) {
-    return null
-  }
-
-  // Extra belt-and-suspenders check for Windows / Unix
-  if (resolved !== imagesRoot && !resolved.startsWith(imagesRoot + sep)) {
-    return null
-  }
-
-  return resolved
+  return resolveSafeImagePathFromRoot(requestUrl, getImagesPath())
 }
+
+export { resolveSafeImagePathFromRoot } from './media-path'

@@ -184,14 +184,23 @@ postgresql://setupcard:setupcard@127.0.0.1:5432/setupcard
 ## Scripts
 
 ```bash
-npm run db:up        # docker compose up -d
-npm run db:down      # docker compose down
-npm run db:generate  # drizzle-kit generate after schema changes
-npm run db:studio    # drizzle-kit studio
-npm run dev          # development with HMR
-npm run build        # compile main/preload/renderer
-npm run dist:win     # Windows installer
+npm run db:up           # docker compose up -d
+npm run db:down         # docker compose down
+npm run db:generate     # drizzle-kit generate after schema changes
+npm run db:studio       # drizzle-kit studio
+npm run test            # all tests (unit + integration)
+npm run test:unit       # Zod, media URL/path, ISO seed — no Docker
+npm run test:integration # Postgres CRUD (needs npm run db:up)
+npm run dev             # development with HMR
+npm run build           # compile main/preload/renderer
+npm run dist:win        # Windows installer
 ```
+
+### Tests
+
+- **Unit** (`tests/unit/`): schemas, `mediaUrl`, safe `media://` paths, ISO catalog seed/labels.
+- **Integration** (`tests/integration/`): materials/parts against live PostgreSQL. Skips automatically if DB is unreachable.
+
 
 ## Notes
 
