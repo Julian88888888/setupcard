@@ -98,6 +98,69 @@ setupcard/
 | Media URL | `media://local/<relative-path>` |
 | Security | `contextIsolation`, `nodeIntegration: false`, `sandbox: true` |
 
+## Images (how photos are saved and loaded)
+
+Photos are **not** stored in PostgreSQL as blobs. Files live on disk; the DB keeps only a **relative** path.
+
+```mermaid
+flowchart TD
+  UI[Renderer: pick photo button]
+  IPC[IPC machines:pick-photo / parts:pick-photo]
+  Dialog[Main: native file dialog]
+  Copy[Copy into userData/images/subdir/uuid.ext]
+  DB[(Postgres: photo_path / part_photos)]
+  MediaUrl[mediaUrl relativePath]
+  Protocol[media:// protocol handler]
+  Disk[Read file under images/]
+
+  UI --> IPC --> Dialog --> Copy
+  Copy -->|relative path e.g. machines/abc.jpg| UI
+  UI -->|save form| DB
+  UI -->|img src| MediaUrl --> Protocol --> Disk
+```
+
+### 1. Save (upload)
+
+1. UI calls `window.api.machines.pickPhoto()` or `window.api.parts.pickPhoto()`.
+2. Main opens a native dialog ([`src/main/utils/images.ts`](src/main/utils/images.ts) / machines handler).
+3. Allowed extensions: `jpg`, `jpeg`, `png`, `webp`, `gif`, `bmp`.
+4. File is copied to:
+   - machines → `{userData}/images/machines/<uuid>.<ext>`
+   - parts → `{userData}/images/parts/<uuid>.<ext>`
+5. IPC returns a **relative** path, e.g. `machines/a1b2….jpg` (never an absolute path).
+6. On form save that string is written to DB:
+   - machines: `machines.photo_path`
+   - parts: rows in `part_photos.photo_path` (+ `sort_order`)
+
+### 2. Display (load in UI)
+
+1. Renderer gets relative path(s) from list/detail IPC.
+2. [`src/renderer/src/lib/media.ts`](src/renderer/src/lib/media.ts) builds:
+   ```
+   media://local/machines/a1b2….jpg
+   ```
+3. `<img src={mediaUrl(path)} />` requests that URL.
+4. Main protocol [`src/main/protocol/media.ts`](src/main/protocol/media.ts):
+   - registered as privileged **before** `app.ready`
+   - handler bound **after** ready
+   - resolves only under `userData/images/` (blocks `..` / path traversal)
+   - serves the file via `net.fetch(file://…)`
+
+### 3. Delete / replace
+
+- Replacing or clearing a machine photo deletes the old file from disk.
+- Deleting a part deletes its `part_photos` rows (FK cascade) and removes files from disk.
+- Backup zip includes the whole `images/` folder together with `dump.sql`.
+
+### Paths cheat sheet
+
+| What | Where |
+|------|--------|
+| On disk | Electron `app.getPath('userData')/images/…` |
+| In DB | Relative only: `machines/…`, `parts/…` |
+| In UI | `media://local/<relative>` via `mediaUrl()` |
+| Code | save: `main/utils/images.ts` · serve: `main/protocol/media.ts` · UI helper: `renderer/src/lib/media.ts` |
+
 ## Prerequisites
 
 1. **Docker Desktop** (for local PostgreSQL)
