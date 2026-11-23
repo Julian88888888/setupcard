@@ -1,15 +1,10 @@
 import { ipcMain, BrowserWindow } from 'electron'
-import { eq } from 'drizzle-orm'
 import { getDb, getDatabaseUrlForDisplay, getImagesPath, schema } from '../db'
 import { IpcChannels } from '../../shared/ipc-channels'
 import {
   SettingsSchema,
   SettingsUpdateSchema,
-  ItemCreateSchema,
-  ItemUpdateSchema,
-  ItemIdSchema,
-  type Settings,
-  type Item
+  type Settings
 } from '../../shared/schemas'
 import { exportBackup, importBackup } from './backup'
 import { registerMachineHandlers } from './machines'
@@ -39,66 +34,6 @@ export function registerIpcHandlers(): void {
     return next
   })
 
-  // ── Items CRUD ────────────────────────────────────────────────────────────
-
-  ipcMain.handle(IpcChannels.ITEMS_LIST, async () => {
-    const rows = await getDb().select().from(schema.items)
-    return rows.map(mapItem)
-  })
-
-  ipcMain.handle(IpcChannels.ITEMS_GET, async (_event, raw: unknown) => {
-    const { id } = ItemIdSchema.parse(typeof raw === 'number' ? { id: raw } : raw)
-    const rows = await getDb().select().from(schema.items).where(eq(schema.items.id, id)).limit(1)
-    return rows[0] ? mapItem(rows[0]) : null
-  })
-
-  ipcMain.handle(IpcChannels.ITEMS_CREATE, async (_event, raw: unknown) => {
-    const data = ItemCreateSchema.parse(raw)
-    const now = new Date().toISOString()
-    const [result] = await getDb()
-      .insert(schema.items)
-      .values({
-        title: data.title,
-        description: data.description ?? '',
-        imagePath: data.imagePath ?? null,
-        createdAt: now,
-        updatedAt: now
-      })
-      .returning()
-    return mapItem(result)
-  })
-
-  ipcMain.handle(IpcChannels.ITEMS_UPDATE, async (_event, raw: unknown) => {
-    const data = ItemUpdateSchema.parse(raw)
-    const { id, ...fields } = data
-    const existing = await getDb()
-      .select()
-      .from(schema.items)
-      .where(eq(schema.items.id, id))
-      .limit(1)
-    if (!existing[0]) {
-      throw new Error(`Item ${id} not found`)
-    }
-
-    const [result] = await getDb()
-      .update(schema.items)
-      .set({
-        ...(fields.title !== undefined ? { title: fields.title } : {}),
-        ...(fields.description !== undefined ? { description: fields.description } : {}),
-        ...(fields.imagePath !== undefined ? { imagePath: fields.imagePath } : {}),
-        updatedAt: new Date().toISOString()
-      })
-      .where(eq(schema.items.id, id))
-      .returning()
-
-    return mapItem(result)
-  })
-
-  ipcMain.handle(IpcChannels.ITEMS_DELETE, async (_event, raw: unknown) => {
-    const { id } = ItemIdSchema.parse(typeof raw === 'number' ? { id: raw } : raw)
-    await getDb().delete(schema.items).where(eq(schema.items.id, id))
-    return { success: true }
-  })
 
   // ── Machines ──────────────────────────────────────────────────────────────
 
@@ -165,13 +100,3 @@ function safeJsonParse(value: string): unknown {
   }
 }
 
-function mapItem(row: typeof schema.items.$inferSelect): Item {
-  return {
-    id: row.id,
-    title: row.title,
-    description: row.description,
-    imagePath: row.imagePath,
-    createdAt: row.createdAt,
-    updatedAt: row.updatedAt
-  }
-}
