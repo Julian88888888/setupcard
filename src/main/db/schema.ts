@@ -14,23 +14,6 @@ export const settings = pgTable('settings', {
 })
 
 /**
- * Example items table.
- * imagePath stores a relative path under userData/images/ (never an absolute path).
- */
-export const items = pgTable('items', {
-  id: serial('id').primaryKey(),
-  title: text('title').notNull(),
-  description: text('description').notNull().default(''),
-  imagePath: text('image_path'),
-  createdAt: text('created_at')
-    .notNull()
-    .$defaultFn(() => new Date().toISOString()),
-  updatedAt: text('updated_at')
-    .notNull()
-    .$defaultFn(() => new Date().toISOString())
-})
-
-/**
  * CNC / machining equipment registry.
  * photoPath is relative under userData/images/, e.g. "machines/abc.jpg".
  */
@@ -128,8 +111,6 @@ export const partPhotos = pgTable('part_photos', {
 })
 
 export type SettingsRow = typeof settings.$inferSelect
-export type ItemRow = typeof items.$inferSelect
-export type NewItemRow = typeof items.$inferInsert
 export type MachineRow = typeof machines.$inferSelect
 export type NewMachineRow = typeof machines.$inferInsert
 export type MaterialRow = typeof materials.$inferSelect

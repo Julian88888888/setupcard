@@ -114,7 +114,6 @@ export async function importBackup(parent?: BrowserWindow | null): Promise<Backu
           materials,
           workpiece_types,
           machines,
-          items,
           settings
         RESTART IDENTITY CASCADE
       `)
@@ -170,12 +169,6 @@ async function buildLogicalDump(): Promise<string> {
       table: 'settings',
       sequence: '',
       select: 'SELECT key, value FROM settings'
-    },
-    {
-      table: 'items',
-      sequence: 'items_id_seq',
-      select:
-        'SELECT id, title, description, image_path, created_at, updated_at FROM items ORDER BY id'
     },
     {
       table: 'machines',
