@@ -7,13 +7,6 @@ export const IpcChannels = {
   SETTINGS_GET: 'settings:get',
   SETTINGS_SET: 'settings:set',
 
-  // Items (example CRUD entity)
-  ITEMS_LIST: 'items:list',
-  ITEMS_GET: 'items:get',
-  ITEMS_CREATE: 'items:create',
-  ITEMS_UPDATE: 'items:update',
-  ITEMS_DELETE: 'items:delete',
-
   // Machines (Верстати)
   MACHINES_LIST: 'machines:list',
   MACHINES_GET: 'machines:get',

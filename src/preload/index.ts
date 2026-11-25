@@ -2,8 +2,6 @@ import { contextBridge, ipcRenderer } from 'electron'
 import { IpcChannels } from '../shared/ipc-channels'
 import type { ElectronAPI } from '../shared/types'
 import type {
-  ItemCreate,
-  ItemUpdate,
   MachineCreate,
   MachineUpdate,
   MaterialCreate,
@@ -24,13 +22,7 @@ const api: ElectronAPI = {
     get: () => ipcRenderer.invoke(IpcChannels.SETTINGS_GET),
     set: (update: SettingsUpdate) => ipcRenderer.invoke(IpcChannels.SETTINGS_SET, update)
   },
-  items: {
-    list: () => ipcRenderer.invoke(IpcChannels.ITEMS_LIST),
-    get: (id: number) => ipcRenderer.invoke(IpcChannels.ITEMS_GET, id),
-    create: (data: ItemCreate) => ipcRenderer.invoke(IpcChannels.ITEMS_CREATE, data),
-    update: (data: ItemUpdate) => ipcRenderer.invoke(IpcChannels.ITEMS_UPDATE, data),
-    delete: (id: number) => ipcRenderer.invoke(IpcChannels.ITEMS_DELETE, id)
-  },
+
   machines: {
     list: (query?: string) => ipcRenderer.invoke(IpcChannels.MACHINES_LIST, query ?? ''),
     get: (id: number) => ipcRenderer.invoke(IpcChannels.MACHINES_GET, id),

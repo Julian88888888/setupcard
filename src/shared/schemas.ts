@@ -12,37 +12,6 @@ export type Settings = z.infer<typeof SettingsSchema>
 export const SettingsUpdateSchema = SettingsSchema.partial()
 export type SettingsUpdate = z.infer<typeof SettingsUpdateSchema>
 
-/** Example entity — extend or replace as the app grows */
-export const ItemCreateSchema = z.object({
-  title: z.string().min(1).max(200),
-  description: z.string().max(2000).optional().default(''),
-  /** Relative path under userData/images/, e.g. "photo-abc.jpg" */
-  imagePath: z.string().min(1).max(500).nullable().optional().default(null)
-})
-
-export type ItemCreate = z.infer<typeof ItemCreateSchema>
-
-export const ItemUpdateSchema = ItemCreateSchema.partial().extend({
-  id: z.number().int().positive()
-})
-
-export type ItemUpdate = z.infer<typeof ItemUpdateSchema>
-
-export const ItemIdSchema = z.object({
-  id: z.number().int().positive()
-})
-
-export const ItemSchema = z.object({
-  id: z.number().int().positive(),
-  title: z.string(),
-  description: z.string(),
-  imagePath: z.string().nullable(),
-  createdAt: z.string(),
-  updatedAt: z.string()
-})
-
-export type Item = z.infer<typeof ItemSchema>
-
 /** Optional non-negative integer (null clears the field) */
 const optionalInt = z.number().int().nonnegative().nullable().optional()
 
