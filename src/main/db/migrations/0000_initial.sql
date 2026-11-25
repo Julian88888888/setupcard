@@ -3,15 +3,6 @@ CREATE TABLE IF NOT EXISTS "settings" (
 	"value" text NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE IF NOT EXISTS "items" (
-	"id" serial PRIMARY KEY NOT NULL,
-	"title" text NOT NULL,
-	"description" text DEFAULT '' NOT NULL,
-	"image_path" text,
-	"created_at" text NOT NULL,
-	"updated_at" text NOT NULL
-);
---> statement-breakpoint
 CREATE TABLE IF NOT EXISTS "machines" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"name" text NOT NULL,

@@ -1,9 +1,6 @@
 import type {
   AppPaths,
   BackupResult,
-  Item,
-  ItemCreate,
-  ItemUpdate,
   Machine,
   MachineCreate,
   MachinePhotoResult,
@@ -31,13 +28,6 @@ export interface ElectronAPI {
   settings: {
     get: () => Promise<Settings>
     set: (update: SettingsUpdate) => Promise<Settings>
-  }
-  items: {
-    list: () => Promise<Item[]>
-    get: (id: number) => Promise<Item | null>
-    create: (data: ItemCreate) => Promise<Item>
-    update: (data: ItemUpdate) => Promise<Item>
-    delete: (id: number) => Promise<{ success: boolean }>
   }
   machines: {
     list: (query?: string) => Promise<Machine[]>
